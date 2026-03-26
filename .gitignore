@@ -1,0 +1,47 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.local
+
+# Next.js / React Frontend
+**/.next/
+**/out/
+**/build/
+.tsbuildinfo
+
+# Editor y OS locales
+.DS_Store
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Variables de entorno
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Backend específicos (NestJS)
+**/uploads/
+**/coverage/
+
+# Vercel, Netlify o Serverless
+.vercel
+.serverless

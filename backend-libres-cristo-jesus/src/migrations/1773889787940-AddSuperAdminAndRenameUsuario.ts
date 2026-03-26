@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddSuperAdminAndRenameUsuario1742000000000 implements MigrationInterface {
-    name = 'AddSuperAdminAndRenameUsuario1742000000000'
+export class AddSuperAdminAndRenameUsuario1773889787940 implements MigrationInterface {
+    name = 'AddSuperAdminAndRenameUsuario1773889787940'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // Add new enum values

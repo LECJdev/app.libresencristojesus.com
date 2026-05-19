@@ -1,23 +1,15 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddSuperAdminAndRenameUsuario1773889787940 implements MigrationInterface {
-    name = 'AddSuperAdminAndRenameUsuario1773889787940'
+  name = 'AddSuperAdminAndRenameUsuario1773889787940';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Add new enum values
-        await queryRunner.query(`ALTER TYPE "public"."persona_rol_enum" ADD VALUE IF NOT EXISTS 'SUPER_ADMIN'`);
-        await queryRunner.query(`ALTER TYPE "public"."persona_rol_enum" ADD VALUE IF NOT EXISTS 'INTEGRANTE'`);
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // En instalaciones nuevas, los roles SUPER_ADMIN e INTEGRANTE
+    // ya vienen definidos en la migración previa AddRoleAndPassword.
+    // No se requiere migración de datos de 'USUARIO' a 'INTEGRANTE'.
+  }
 
-        // Migrate existing USUARIO values to INTEGRANTE
-        await queryRunner.query(`UPDATE "persona" SET "rol" = 'INTEGRANTE' WHERE "rol" = 'USUARIO'`);
-
-        // Update the default value
-        await queryRunner.query(`ALTER TABLE "persona" ALTER COLUMN "rol" SET DEFAULT 'INTEGRANTE'`);
-    }
-
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`UPDATE "persona" SET "rol" = 'USUARIO' WHERE "rol" = 'INTEGRANTE'`);
-        await queryRunner.query(`ALTER TABLE "persona" ALTER COLUMN "rol" SET DEFAULT 'USUARIO'`);
-        // Note: PostgreSQL does not support removing enum values easily
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // No requiere acción reversa para esquemas nuevos unificados.
+  }
 }

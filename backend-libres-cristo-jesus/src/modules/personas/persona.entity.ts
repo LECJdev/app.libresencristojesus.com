@@ -41,6 +41,9 @@ export class Persona extends BaseEntity {
   @Column({ type: 'enum', enum: TipoDocumento, nullable: true })
   tipoDocumento: TipoDocumento | null;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  documento: string | null;
+
   @Column({ type: 'enum', enum: Genero, nullable: true })
   genero: Genero | null;
 

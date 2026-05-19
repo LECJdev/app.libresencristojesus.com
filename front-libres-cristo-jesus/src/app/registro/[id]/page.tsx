@@ -18,7 +18,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
   const [isNewUser, setIsNewUser] = useState(false);
 
   const [formData, setFormData] = useState({
-    nombres: '', apellidos: '', celular: '', tipoDocumento: 'C.C',
+    nombres: '', apellidos: '', celular: '', documento: '', tipoDocumento: 'C.C',
     direccion: '', correo: '', edad: '', barrio: '', genero: '', fechaNacimiento: ''
   });
 
@@ -90,7 +90,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
     setSearchDoc('');
     setPersonaEncontrada(null);
     setIsNewUser(false);
-    setFormData({ nombres: '', apellidos: '', celular: '', tipoDocumento: 'C.C', direccion: '', correo: '', edad: '', barrio: '', genero: '', fechaNacimiento: '' });
+    setFormData({ nombres: '', apellidos: '', celular: '', documento: '', tipoDocumento: 'C.C', direccion: '', correo: '', edad: '', barrio: '', genero: '', fechaNacimiento: '' });
     setRespuestas({});
     setSuccess(false);
   };
@@ -360,16 +360,19 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
                     <input required type="text" placeholder="Apellidos *"
                       className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
                       value={formData.apellidos} onChange={(e) => setFormData({...formData, apellidos: e.target.value})} />
-                    <div className="col-span-2 flex gap-2 mb-2">
-                      <select className="w-1/3 px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white"
+                    <div className="col-span-2 flex gap-2">
+                      <select className="w-1/4 px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white"
                         value={formData.tipoDocumento} onChange={(e) => setFormData({...formData, tipoDocumento: e.target.value})}>
                         <option value="C.C">C.C</option>
                         <option value="T.I">T.I</option>
                         <option value="C.E">C.E</option>
                       </select>
-                      <input required type="text" placeholder="Número / Celular *" disabled
-                        className="w-2/3 px-3 py-2 text-sm rounded-md border border-slate-300 bg-slate-100 text-slate-500 placeholder:text-slate-400"
-                        value={formData.celular} />
+                      <input required type="text" placeholder="Número de Documento *" 
+                        className="w-1/2 px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
+                        value={formData.documento} onChange={(e) => setFormData({...formData, documento: e.target.value})} />
+                      <input type="text" placeholder="Celular" 
+                        className="w-1/4 px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
+                        value={formData.celular} onChange={(e) => setFormData({...formData, celular: e.target.value})} />
                     </div>
 
                     {/* Nuevos Datos Biográficos */}

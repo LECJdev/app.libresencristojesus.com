@@ -17,9 +17,12 @@ export class AuthService {
       throw new UnauthorizedException('Usuario no encontrado');
     }
 
-    const isAuthorized = persona.rol === Rol.ADMIN || persona.rol === Rol.SUPER_ADMIN;
+    const isAuthorized =
+      persona.rol === Rol.ADMIN || persona.rol === Rol.SUPER_ADMIN;
     if (!isAuthorized) {
-      throw new UnauthorizedException('No tienes permisos para acceder al sistema');
+      throw new UnauthorizedException(
+        'No tienes permisos para acceder al sistema',
+      );
     }
 
     if (!persona.password) {

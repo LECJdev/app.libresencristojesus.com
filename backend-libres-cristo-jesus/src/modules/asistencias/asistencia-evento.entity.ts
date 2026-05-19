@@ -16,11 +16,15 @@ export class AsistenciaEvento {
   @PrimaryColumn({ type: 'varchar', length: 50 })
   id: string;
 
-  @ManyToOne(() => Evento, (evento) => evento.asistencias, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Evento, (evento) => evento.asistencias, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'evento_id' })
   evento: Evento;
 
-  @ManyToOne(() => Persona, (persona) => persona.asistenciasEventos, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Persona, (persona) => persona.asistenciasEventos, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'persona_id' })
   persona: Persona;
 

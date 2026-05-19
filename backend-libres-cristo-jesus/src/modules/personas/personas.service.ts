@@ -9,6 +9,7 @@ export class CreateUserDto {
   nombres: string;
   apellidos: string;
   celular: string;
+  documento?: string;
   rol: Rol;
   password?: string;
 }
@@ -34,7 +35,12 @@ export class PersonasService {
   }
 
   async update(id: string, data: Partial<Persona>): Promise<Persona | null> {
-    await this.personaRepository.update(id, data);
+    const personaToUpdate = await this.personaRepository.preload({
+      id,
+      ...data,
+    });
+    if (!personaToUpdate) return null;
+    await this.personaRepository.save(personaToUpdate);
     return this.findOne(id);
   }
 
@@ -54,7 +60,9 @@ export class PersonasService {
 
     const needsPassword = dto.rol === Rol.ADMIN || dto.rol === Rol.SUPER_ADMIN;
     if (needsPassword && !dto.password) {
-      throw new BadRequestException('Los roles ADMIN y SUPER_ADMIN requieren contraseña');
+      throw new BadRequestException(
+        'Los roles ADMIN y SUPER_ADMIN requieren contraseña',
+      );
     }
 
     let hashedPassword: string | undefined;
@@ -66,6 +74,7 @@ export class PersonasService {
       nombres: dto.nombres,
       apellidos: dto.apellidos,
       celular: dto.celular,
+      documento: dto.documento ?? null,
       rol: dto.rol,
       password: hashedPassword ?? null,
     });

@@ -9,6 +9,7 @@ interface Persona {
   nombres: string | null;
   apellidos: string | null;
   celular: string | null;
+  documento: string | null;
   tipoDocumento: string | null;
   genero: string | null;
   edad: number | null;
@@ -32,7 +33,7 @@ export default function PersonasPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [form, setForm] = useState({
-    nombres: '', apellidos: '', celular: '', tipoDocumento: 'C.C', genero: '',
+    nombres: '', apellidos: '', celular: '', documento: '', tipoDocumento: 'C.C', genero: '',
     edad: '', fechaNacimiento: '', direccion: '', correo: '', barrio: '', redId: '', invitadoPorId: ''
   });
 
@@ -52,13 +53,14 @@ export default function PersonasPage() {
   useEffect(() => { fetchAll(); }, []);
 
   const resetForm = () => {
-    setForm({ nombres: '', apellidos: '', celular: '', tipoDocumento: 'C.C', genero: '', edad: '', fechaNacimiento: '', direccion: '', correo: '', barrio: '', redId: '', invitadoPorId: '' });
+    setForm({ nombres: '', apellidos: '', celular: '', documento: '', tipoDocumento: 'C.C', genero: '', edad: '', fechaNacimiento: '', direccion: '', correo: '', barrio: '', redId: '', invitadoPorId: '' });
     setEditingId(null); setShowForm(false);
   };
 
   const handleEdit = (item: Persona) => {
     setForm({
       nombres: item.nombres || '', apellidos: item.apellidos || '', celular: item.celular || '',
+      documento: item.documento || '',
       tipoDocumento: item.tipoDocumento || 'C.C', genero: item.genero || '', edad: item.edad?.toString() || '',
       fechaNacimiento: item.fechaNacimiento || '',
       direccion: item.direccion || '', correo: item.correo || '', barrio: item.barrio || '',
@@ -70,7 +72,7 @@ export default function PersonasPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload: Record<string, unknown> = {
-      nombres: form.nombres, apellidos: form.apellidos, celular: form.celular,
+      nombres: form.nombres, apellidos: form.apellidos, celular: form.celular, documento: form.documento || null,
       tipoDocumento: form.tipoDocumento, genero: form.genero || null, edad: form.edad ? parseInt(form.edad) : null,
       fechaNacimiento: form.fechaNacimiento || null,
       direccion: form.direccion || null, correo: form.correo || null, barrio: form.barrio || null,
@@ -93,7 +95,7 @@ export default function PersonasPage() {
   const filtered = items.filter(p => {
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
-    return (p.nombres?.toLowerCase().includes(q)) || (p.apellidos?.toLowerCase().includes(q)) || (p.celular?.includes(q));
+    return (p.nombres?.toLowerCase().includes(q)) || (p.apellidos?.toLowerCase().includes(q)) || (p.celular?.includes(q)) || (p.documento?.includes(q));
   });
 
   if (loading) return <div className="p-8 text-center text-slate-500">Cargando...</div>;
@@ -136,11 +138,15 @@ export default function PersonasPage() {
                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Tipo Documento</label>
-              <select value={form.tipoDocumento} onChange={e => setForm({ ...form, tipoDocumento: e.target.value })}
-                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white">
-                <option value="C.C">C.C</option><option value="T.I.">T.I.</option><option value="C.E.">C.E.</option><option value="PT">PT</option>
-              </select>
+              <label className="text-sm font-medium text-slate-700">Documento</label>
+              <div className="flex gap-2">
+                <select value={form.tipoDocumento} onChange={e => setForm({ ...form, tipoDocumento: e.target.value })}
+                  className="w-1/3 border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white">
+                  <option value="C.C">C.C</option><option value="T.I.">T.I.</option><option value="C.E.">C.E.</option><option value="PT">PT</option>
+                </select>
+                <input type="text" value={form.documento} onChange={e => setForm({ ...form, documento: e.target.value })}
+                  placeholder="Número" className="w-2/3 border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400" />
+              </div>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-700">Género</label>
@@ -214,6 +220,7 @@ export default function PersonasPage() {
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
             <tr>
               <th className="px-6 py-4 font-semibold">Nombre Completo</th>
+              <th className="px-6 py-4 font-semibold">Documento</th>
               <th className="px-6 py-4 font-semibold">Celular</th>
               <th className="px-6 py-4 font-semibold">Red</th>
               <th className="px-6 py-4 font-semibold">Rol</th>
@@ -226,6 +233,7 @@ export default function PersonasPage() {
             ) : filtered.map(item => (
               <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-slate-900">{item.nombres} {item.apellidos}</td>
+                <td className="px-6 py-4 text-slate-600">{item.documento || '—'}</td>
                 <td className="px-6 py-4 text-slate-600">{item.celular || '—'}</td>
                 <td className="px-6 py-4 text-slate-600">{item.red?.nombre || '—'}</td>
                 <td className="px-6 py-4">

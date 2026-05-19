@@ -16,6 +16,9 @@ import { DicipuladosModule } from './modules/dicipulados/dicipulados.module';
 import { LideresCasaPazModule } from './modules/lideres-casa-paz/lideres-casa-paz.module';
 import { LideresDicipuladoModule } from './modules/lideres-dicipulado/lideres-dicipulado.module';
 import { AsistenciasModule } from './modules/asistencias/asistencias.module';
+import { AsistenciasDominicalesModule } from './modules/asistencias-dominicales/asistencias-dominicales.module';
+import { AsistenciasDicipuladosModule } from './modules/asistencias-dicipulados/asistencias-dicipulados.module';
+import { AsistenciasCasaPazModule } from './modules/asistencias-casa-paz/asistencias-casa-paz.module';
 import { EventosModule } from './modules/eventos/eventos.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UploadModule } from './modules/upload/upload.module';
@@ -52,6 +55,9 @@ import { UploadModule } from './modules/upload/upload.module';
     LideresCasaPazModule,
     LideresDicipuladoModule,
     AsistenciasModule,
+    AsistenciasDominicalesModule,
+    AsistenciasDicipuladosModule,
+    AsistenciasCasaPazModule,
     EventosModule,
     AuthModule,
     UploadModule,

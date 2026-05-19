@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, LayoutDashboard, Users, BarChart3, QrCode, ShieldCheck, CalendarCheck, Network, Building2, MapPin } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, BarChart3, QrCode, ShieldCheck, CalendarCheck, Network, Building2, MapPin, FolderTree, ChevronDown, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, isSuperAdmin, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [isStructureOpen, setIsStructureOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAdmin) {
@@ -27,13 +28,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const routes = [
     { name: 'Panel General', path: '/admin', icon: LayoutDashboard },
+    { name: 'Asistencia', path: '/admin/asistencias', icon: CalendarCheck },
+    { name: 'Registros de Eventos', path: '/admin/eventos', icon: CalendarCheck },
+    { name: 'Reportes', path: '/admin/reportes', icon: BarChart3 },
+    { name: 'Generador QR', path: '/admin/qr', icon: QrCode },
+  ];
+
+  const structureRoutes = [
     { name: 'Personas', path: '/admin/personas', icon: Users },
     { name: 'Redes', path: '/admin/redes', icon: Network },
     { name: 'Sedes', path: '/admin/sedes', icon: Building2 },
     { name: 'Distritos', path: '/admin/distritos', icon: MapPin },
-    { name: 'Registros de Eventos', path: '/admin/eventos', icon: CalendarCheck },
-    { name: 'Reportes', path: '/admin/reportes', icon: BarChart3 },
-    { name: 'Generador QR', path: '/admin/qr', icon: QrCode },
   ];
 
   const superAdminRoutes = [
@@ -50,7 +55,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <nav className="flex-1 px-4 py-6 space-y-1">
           {routes.map((route) => {
             const Icon = route.icon;
-            const isActive = pathname === route.path;
+            const isActive =
+              pathname === route.path || pathname.startsWith(`${route.path}/`);
             return (
               <Link
                 key={route.path}
@@ -64,6 +70,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </Link>
             );
           })}
+
+          <div className="pt-4 pb-1 px-3">
+            <button
+              type="button"
+              onClick={() => setIsStructureOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <FolderTree className="h-4 w-4" />
+                Estructura
+              </span>
+              {isStructureOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+          </div>
+          {isStructureOpen && (
+            <div className="space-y-1">
+              {structureRoutes.map((route) => {
+                const Icon = route.icon;
+                const isActive =
+                  pathname === route.path || pathname.startsWith(`${route.path}/`);
+                return (
+                  <Link
+                    key={route.path}
+                    href={route.path}
+                    className={`ml-3 flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {route.name}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {/* Super Admin exclusive section */}
           {isSuperAdmin && (

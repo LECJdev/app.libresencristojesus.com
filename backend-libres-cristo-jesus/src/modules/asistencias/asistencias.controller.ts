@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Delete, Param, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+} from '@nestjs/common';
 import { AsistenciasService } from './asistencias.service';
 import { AsistenciaCasaPaz } from './asistencia-casa-paz.entity';
 import { AsistenciaNuevos } from './asistencia-nuevos.entity';
@@ -87,7 +95,9 @@ export class AsistenciasController {
   }
 
   @Get('evento/por-evento/:eventoId')
-  findAllPorEvento(@Param('eventoId') eventoId: string): Promise<AsistenciaEvento[]> {
+  findAllPorEvento(
+    @Param('eventoId') eventoId: string,
+  ): Promise<AsistenciaEvento[]> {
     return this.asistenciasService.findAllEvento(eventoId);
   }
 
@@ -101,6 +111,14 @@ export class AsistenciasController {
     @Body() data: Partial<AsistenciaEvento>,
   ): Promise<AsistenciaEvento> {
     return this.asistenciasService.createEvento(data);
+  }
+
+  @Patch('evento/:id')
+  updateEvento(
+    @Param('id') id: string,
+    @Body() data: Partial<AsistenciaEvento>,
+  ): Promise<AsistenciaEvento | null> {
+    return this.asistenciasService.updateEvento(id, data);
   }
 
   @Delete('evento/:id')

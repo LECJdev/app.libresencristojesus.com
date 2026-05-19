@@ -116,6 +116,18 @@ export class AsistenciasService {
     return this.asistEventoRepo.save(entity);
   }
 
+  async updateEvento(
+    id: string,
+    data: Partial<AsistenciaEvento>,
+  ): Promise<AsistenciaEvento | null> {
+    const asistencia = await this.asistEventoRepo.preload({
+      id,
+      ...data,
+    });
+    if (!asistencia) return null;
+    return this.asistEventoRepo.save(asistencia);
+  }
+
   async removeEvento(id: string): Promise<void> {
     await this.asistEventoRepo.delete(id);
   }

@@ -2,6 +2,7 @@
   "name": "front-libres-cristo-jesus",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.7.0",
   "scripts": {
     "dev": "next dev -p 4000",
     "build": "next build",

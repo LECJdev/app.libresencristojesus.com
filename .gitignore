@@ -45,3 +45,6 @@ lerna-debug.log*
 # Vercel, Netlify o Serverless
 .vercel
 .serverless
+
+/id_lbres
+/id_rsaP

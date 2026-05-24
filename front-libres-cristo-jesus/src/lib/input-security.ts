@@ -7,6 +7,18 @@ function stripControlChars(value: string): string {
     .join('');
 }
 
+function normalizeSpacesForTyping(value: string): string {
+  const sanitized = stripControlChars(value);
+  const hasTrailingSpace = /\s$/.test(sanitized);
+  const collapsed = sanitized.replace(/\s+/g, ' ').trimStart();
+
+  if (!collapsed) {
+    return '';
+  }
+
+  return hasTrailingSpace ? `${collapsed.trimEnd()} ` : collapsed.trimEnd();
+}
+
 function normalizeSpaces(value: string): string {
   return stripControlChars(value).replace(/\s+/g, ' ').trim();
 }
@@ -19,7 +31,7 @@ export function sanitizeDocumentoInput(value: string): string {
 }
 
 export function sanitizeNombreInput(value: string): string {
-  return normalizeSpaces(value)
+  return normalizeSpacesForTyping(value)
     .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]/g, '')
     .slice(0, 120);
 }
@@ -29,11 +41,15 @@ export function sanitizeCelularInput(value: string): string {
 }
 
 export function sanitizeDireccionInput(value: string): string {
-  return normalizeSpaces(value).slice(0, 255);
+  return normalizeSpacesForTyping(value).slice(0, 255);
 }
 
 export function sanitizeBarrioInput(value: string): string {
-  return normalizeSpaces(value).slice(0, 120);
+  return normalizeSpacesForTyping(value).slice(0, 120);
+}
+
+export function sanitizeLocationInput(value: string): string {
+  return normalizeSpaces(value).slice(0, 150);
 }
 
 export function sanitizeCorreoInput(value: string): string {

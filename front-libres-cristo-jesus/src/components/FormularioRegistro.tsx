@@ -1,9 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { UserData } from '@/hooks/useUserStorage';
+import {
+  ColombiaCity,
+  ColombiaDepartment,
+  fetchColombiaCitiesByDepartment,
+  fetchColombiaDepartments,
+} from '@/lib/api-colombia';
+import {
+  buildRegistrationPersonaPayload,
+  EMPTY_REGISTRATION_PERSONA_FORM,
+} from '@/lib/registration-persona';
+import {
+  sanitizeBarrioInput,
+  sanitizeCelularInput,
+  sanitizeCorreoInput,
+  sanitizeDireccionInput,
+  sanitizeLocationInput,
+  sanitizeNombreInput,
+} from '@/lib/input-security';
 
 interface Props {
   initialDocumento: string;
@@ -12,27 +30,151 @@ interface Props {
 
 export default function FormularioRegistro({ initialDocumento, onRegistered }: Props) {
   const [formData, setFormData] = useState({
-    nombres: '',
-    apellidos: '',
+    ...EMPTY_REGISTRATION_PERSONA_FORM,
     celular: initialDocumento,
-    tipoDocumento: 'C.C',
-    direccion: '',
-    correo: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [locationError, setLocationError] = useState('');
+  const [departments, setDepartments] = useState<ColombiaDepartment[]>([]);
+  const [cities, setCities] = useState<ColombiaCity[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDepartments = async () => {
+      setIsLoadingDepartments(true);
+      setLocationError('');
+
+      try {
+        const response = await fetchColombiaDepartments();
+        if (!cancelled) {
+          setDepartments(response);
+        }
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setLocationError('No fue posible cargar departamentos. Intentá de nuevo más tarde.');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingDepartments(false);
+        }
+      }
+    };
+
+    loadDepartments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDepartmentId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadCities = async () => {
+      setIsLoadingCities(true);
+      setLocationError('');
+
+      try {
+        const response = await fetchColombiaCitiesByDepartment(
+          Number.parseInt(selectedDepartmentId, 10),
+        );
+        if (!cancelled) {
+          setCities(response);
+        }
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setCities([]);
+          setLocationError('No fue posible cargar ciudades o municipios.');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingCities(false);
+        }
+      }
+    };
+
+    loadCities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDepartmentId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    if (name === 'nombres' || name === 'apellidos') {
+      setFormData((prev) => ({ ...prev, [name]: sanitizeNombreInput(value) }));
+      return;
+    }
+
+    if (name === 'celular') {
+      setFormData((prev) => ({ ...prev, celular: sanitizeCelularInput(value) }));
+      return;
+    }
+
+    if (name === 'correo') {
+      setFormData((prev) => ({ ...prev, correo: sanitizeCorreoInput(value) }));
+      return;
+    }
+
+    if (name === 'direccion') {
+      setFormData((prev) => ({ ...prev, direccion: sanitizeDireccionInput(value) }));
+      return;
+    }
+
+    if (name === 'barrio') {
+      setFormData((prev) => ({ ...prev, barrio: sanitizeBarrioInput(value) }));
+      return;
+    }
+
+    if (name === 'departamento') {
+      const department = departments.find((item) => item.name === value);
+      setSelectedDepartmentId(department ? String(department.id) : '');
+      setCities([]);
+      setFormData((prev) => ({
+        ...prev,
+        departamento: sanitizeLocationInput(value),
+        ciudad: '',
+      }));
+      return;
+    }
+
+    if (name === 'ciudad') {
+      setFormData((prev) => ({ ...prev, ciudad: sanitizeLocationInput(value) }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.departamento || !formData.ciudad) {
+      setError('Seleccioná departamento y ciudad/municipio.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     try {
-      const { data } = await apiClient.post('/personas', formData);
+      const { data } = await apiClient.post(
+        '/personas',
+        buildRegistrationPersonaPayload(formData),
+      );
       onRegistered({
         id: data.id,
         nombres: data.nombres,
@@ -64,6 +206,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
               required
               value={formData.nombres}
               onChange={handleChange}
+              maxLength={120}
               className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
@@ -75,6 +218,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
               required
               value={formData.apellidos}
               onChange={handleChange}
+              maxLength={120}
               className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
@@ -103,20 +247,84 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
               required
               value={formData.celular}
               onChange={handleChange}
+              maxLength={15}
               className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-          <input
-            type="text"
-            name="direccion"
-            value={formData.direccion}
-            onChange={handleChange}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Departamento *</label>
+            <select
+              name="departamento"
+              required
+              value={formData.departamento}
+              onChange={handleChange}
+              disabled={isLoadingDepartments}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100"
+            >
+              <option value="">
+                {isLoadingDepartments ? 'Cargando departamentos...' : 'Selecciona un departamento'}
+              </option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.name}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad / Municipio *</label>
+            <select
+              name="ciudad"
+              required
+              value={formData.ciudad}
+              onChange={handleChange}
+              disabled={!formData.departamento || isLoadingCities}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100"
+            >
+              <option value="">
+                {!formData.departamento
+                  ? 'Primero selecciona un departamento'
+                  : isLoadingCities
+                    ? 'Cargando ciudades...'
+                    : 'Selecciona una ciudad o municipio'}
+              </option>
+              {cities.map((city) => (
+                <option key={city.id} value={city.name}>
+                  {city.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Barrio</label>
+            <input
+              type="text"
+              name="barrio"
+              value={formData.barrio}
+              onChange={handleChange}
+              maxLength={120}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+            <input
+              type="text"
+              name="direccion"
+              value={formData.direccion}
+              onChange={handleChange}
+              maxLength={255}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
         </div>
 
         <div>
@@ -126,10 +334,12 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
             name="correo"
             value={formData.correo}
             onChange={handleChange}
+            maxLength={120}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
 
+        {locationError && <p className="text-sm text-amber-600">{locationError}</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <button

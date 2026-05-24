@@ -1,0 +1,67 @@
+import {
+  sanitizeBarrioInput,
+  sanitizeCelularInput,
+  sanitizeCorreoInput,
+  sanitizeDireccionInput,
+  sanitizeEdadInput,
+  sanitizeLocationInput,
+  sanitizeNombreInput,
+} from '@/lib/input-security';
+
+export type TipoDocumento = 'C.C' | 'T.I.' | 'PT' | 'C.E.';
+
+export interface RegistrationPersonaForm {
+  nombres: string;
+  apellidos: string;
+  celular: string;
+  tipoDocumento: TipoDocumento;
+  direccion: string;
+  correo: string;
+  edad: string;
+  departamento: string;
+  ciudad: string;
+  barrio: string;
+}
+
+export const EMPTY_REGISTRATION_PERSONA_FORM: RegistrationPersonaForm = {
+  nombres: '',
+  apellidos: '',
+  celular: '',
+  tipoDocumento: 'C.C',
+  direccion: '',
+  correo: '',
+  edad: '',
+  departamento: '',
+  ciudad: '',
+  barrio: '',
+};
+
+export function buildRegistrationPersonaPayload(
+  form: RegistrationPersonaForm,
+): {
+  nombres: string;
+  apellidos: string;
+  celular: string;
+  tipoDocumento: TipoDocumento;
+  direccion?: string;
+  correo?: string;
+  edad?: number;
+  departamento: string;
+  ciudad: string;
+  barrio?: string;
+} {
+  const edadSanitizada = sanitizeEdadInput(form.edad);
+
+  return {
+    nombres: sanitizeNombreInput(form.nombres),
+    apellidos: sanitizeNombreInput(form.apellidos),
+    celular: sanitizeCelularInput(form.celular),
+    tipoDocumento: form.tipoDocumento,
+    direccion: sanitizeDireccionInput(form.direccion) || undefined,
+    correo: sanitizeCorreoInput(form.correo) || undefined,
+    edad: edadSanitizada ? Number.parseInt(edadSanitizada, 10) : undefined,
+    departamento: sanitizeLocationInput(form.departamento),
+    ciudad: sanitizeLocationInput(form.ciudad),
+    barrio: sanitizeBarrioInput(form.barrio) || undefined,
+  };
+}

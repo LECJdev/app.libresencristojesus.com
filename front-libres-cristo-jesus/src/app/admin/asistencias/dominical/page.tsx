@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import QrPdfDownload from '@/components/QrPdfDownload';
 import {
   Plus,
   Search,
@@ -12,7 +13,6 @@ import {
   Trash2,
   Save,
   X,
-  QrCode,
 } from 'lucide-react';
 
 type EstadoAsistenciaDominical = 'ACTIVO' | 'INACTIVO';
@@ -299,9 +299,11 @@ export default function AsistenciasDominicalesPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-slate-700">
-                    <span className="inline-flex items-center gap-1 text-blue-600">
-                      <QrCode className="h-4 w-4" /> Generado
-                    </span>
+                    <QrPdfDownload
+                      publicPath={`/asistencia/dominical/${item.qrToken}`}
+                      fileName={`qr-dominical-${item.nombre}`}
+                      title={item.nombre}
+                    />
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">

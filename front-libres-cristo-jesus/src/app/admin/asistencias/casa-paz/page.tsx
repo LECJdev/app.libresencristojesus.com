@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import QrPdfDownload from '@/components/QrPdfDownload';
 import {
   Plus,
   Search,
@@ -12,7 +13,6 @@ import {
   Trash2,
   Save,
   X,
-  QrCode,
   Home,
 } from 'lucide-react';
 
@@ -314,9 +314,11 @@ export default function AsistenciasCasaPazPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-slate-700">
-                    <span className="inline-flex items-center gap-1 text-blue-600">
-                      <QrCode className="h-4 w-4" /> Generado
-                    </span>
+                    <QrPdfDownload
+                      publicPath={`/asistencia/casa-paz/${item.qrToken}`}
+                      fileName={`qr-casa-paz-${item.nombre}`}
+                      title={item.nombre}
+                    />
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">

@@ -5,14 +5,27 @@ import { apiClient } from '@/lib/api';
 import { Loader2, CheckCircle2, UserPlus } from 'lucide-react';
 import { useUserStorage } from '@/hooks/useUserStorage';
 import {
+  ColombiaCity,
+  ColombiaDepartment,
+  fetchColombiaCitiesByDepartment,
+  fetchColombiaDepartments,
+} from '@/lib/api-colombia';
+import {
   sanitizeBarrioInput,
   sanitizeCelularInput,
   sanitizeCorreoInput,
   sanitizeDireccionInput,
   sanitizeDocumentoInput,
   sanitizeEdadInput,
+  sanitizeLocationInput,
   sanitizeNombreInput,
 } from '@/lib/input-security';
+import {
+  buildRegistrationPersonaPayload,
+  EMPTY_REGISTRATION_PERSONA_FORM,
+  RegistrationPersonaForm,
+  TipoDocumento,
+} from '@/lib/registration-persona';
 
 type Step =
   | 'LOADING'
@@ -21,8 +34,6 @@ type Step =
   | 'SUCCESS'
   | 'ALREADY_REGISTERED'
   | 'ERROR';
-
-type TipoDocumento = 'C.C' | 'T.I.' | 'PT' | 'C.E.';
 
 interface PublicAsistencia {
   id: string;
@@ -44,28 +55,6 @@ interface RegistroResponse {
   registroId: string;
   fechaRegistro: string;
 }
-
-interface PersonaForm {
-  nombres: string;
-  apellidos: string;
-  celular: string;
-  tipoDocumento: TipoDocumento;
-  direccion: string;
-  correo: string;
-  edad: string;
-  barrio: string;
-}
-
-const EMPTY_FORM: PersonaForm = {
-  nombres: '',
-  apellidos: '',
-  celular: '',
-  tipoDocumento: 'C.C',
-  direccion: '',
-  correo: '',
-  edad: '',
-  barrio: '',
-};
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (typeof error === 'object' && error !== null && 'response' in error) {
@@ -111,54 +100,147 @@ export default function RegistroDominicalPublicoPage({
   const [errorMsg, setErrorMsg] = useState('');
   const [documento, setDocumento] = useState('');
   const [loadingAction, setLoadingAction] = useState(false);
-  const [personaForm, setPersonaForm] = useState<PersonaForm>(EMPTY_FORM);
+  const [personaForm, setPersonaForm] = useState<RegistrationPersonaForm>(
+    EMPTY_REGISTRATION_PERSONA_FORM,
+  );
   const [lastResult, setLastResult] = useState<RegistroResponse | null>(null);
+  const [departments, setDepartments] = useState<ColombiaDepartment[]>([]);
+  const [cities, setCities] = useState<ColombiaCity[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [locationError, setLocationError] = useState('');
 
   const displayName = useMemo(() => {
     if (!lastResult?.persona) return '';
     return `${lastResult.persona.nombres || ''} ${lastResult.persona.apellidos || ''}`.trim();
   }, [lastResult]);
 
-  const fetchAsistenciaPublica = async () => {
-    try {
-      const { data } = await apiClient.get<PublicAsistencia>(
-        `/asistencias-dominicales/public/${resolvedParams.token}`,
-      );
-      setAsistencia(data);
-    } catch (error: unknown) {
-      const status = getErrorStatus(error);
-      if (shouldLogAsError(status)) {
-        console.error(error);
-      }
-      setErrorMsg('No se encontró una asistencia válida para este QR.');
-      setStep('ERROR');
-    }
-  };
-
   const handleRegistrarOtraPersona = () => {
     clearUserData();
     setLastResult(null);
-    setPersonaForm(EMPTY_FORM);
+    setPersonaForm(EMPTY_REGISTRATION_PERSONA_FORM);
+    setCities([]);
+    setSelectedDepartmentId('');
     setDocumento('');
     setErrorMsg('');
     setStep('ASK_DOCUMENT');
   };
 
   useEffect(() => {
-    fetchAsistenciaPublica();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+
+    const loadAsistenciaPublica = async () => {
+      try {
+        const { data } = await apiClient.get<PublicAsistencia>(
+          `/asistencias-dominicales/public/${resolvedParams.token}`,
+        );
+
+        if (!cancelled) {
+          setAsistencia(data);
+        }
+      } catch (error: unknown) {
+        const status = getErrorStatus(error);
+        if (shouldLogAsError(status)) {
+          console.error(error);
+        }
+
+        if (!cancelled) {
+          setErrorMsg('No se encontró una asistencia válida para este QR.');
+          setStep('ERROR');
+        }
+      }
+    };
+
+    void loadAsistenciaPublica();
+
+    return () => {
+      cancelled = true;
+    };
   }, [resolvedParams.token]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDepartments = async () => {
+      setIsLoadingDepartments(true);
+      setLocationError('');
+
+      try {
+        const response = await fetchColombiaDepartments();
+        if (!cancelled) {
+          setDepartments(response);
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setLocationError('No fue posible cargar departamentos.');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingDepartments(false);
+        }
+      }
+    };
+
+    loadDepartments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDepartmentId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadCities = async () => {
+      setIsLoadingCities(true);
+      setLocationError('');
+
+      try {
+        const response = await fetchColombiaCitiesByDepartment(
+          Number.parseInt(selectedDepartmentId, 10),
+        );
+        if (!cancelled) {
+          setCities(response);
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setCities([]);
+          setLocationError('No fue posible cargar ciudades o municipios.');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingCities(false);
+        }
+      }
+    };
+
+    loadCities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDepartmentId]);
 
   useEffect(() => {
     if (!asistencia || !isLoaded) return;
 
-    if (userData?.documento) {
-      setDocumento(userData.documento);
-      registrarConDocumento(userData.documento);
-      return;
-    }
+    const syncRegistrationStep = async () => {
+      if (userData?.documento) {
+        await registrarConDocumento(userData.documento);
+        return;
+      }
 
-    setStep('ASK_DOCUMENT');
+      setStep('ASK_DOCUMENT');
+    };
+
+    void syncRegistrationStep();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asistencia, isLoaded]);
 
@@ -176,7 +258,7 @@ export default function RegistroDominicalPublicoPage({
     setStep(response.alreadyRegistered ? 'ALREADY_REGISTERED' : 'SUCCESS');
   };
 
-  const registrarConDocumento = async (doc: string) => {
+  async function registrarConDocumento(doc: string) {
     const safeDocumento = sanitizeDocumentoInput(doc);
     if (!safeDocumento) return;
 
@@ -206,7 +288,7 @@ export default function RegistroDominicalPublicoPage({
     } finally {
       setLoadingAction(false);
     }
-  };
+  }
 
   const handleSubmitDocumento = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,6 +305,11 @@ export default function RegistroDominicalPublicoPage({
       return;
     }
 
+    if (!personaForm.departamento || !personaForm.ciudad) {
+      setErrorMsg('Seleccioná departamento y ciudad/municipio.');
+      return;
+    }
+
     setLoadingAction(true);
     setErrorMsg('');
 
@@ -231,18 +318,7 @@ export default function RegistroDominicalPublicoPage({
         `/asistencias-dominicales/public/${resolvedParams.token}/registrar`,
         {
           documento: documentoSanitizado,
-          persona: {
-            nombres: sanitizeNombreInput(personaForm.nombres),
-            apellidos: sanitizeNombreInput(personaForm.apellidos),
-            celular: sanitizeCelularInput(personaForm.celular),
-            tipoDocumento: personaForm.tipoDocumento,
-            direccion: sanitizeDireccionInput(personaForm.direccion) || undefined,
-            correo: sanitizeCorreoInput(personaForm.correo) || undefined,
-            edad: personaForm.edad
-              ? Number.parseInt(sanitizeEdadInput(personaForm.edad), 10)
-              : undefined,
-            barrio: sanitizeBarrioInput(personaForm.barrio) || undefined,
-          },
+          persona: buildRegistrationPersonaPayload(personaForm),
         },
       );
 
@@ -352,9 +428,7 @@ export default function RegistroDominicalPublicoPage({
               type="text"
               required
               value={documento}
-              onChange={(e) =>
-                setDocumento(sanitizeDocumentoInput(e.target.value))
-              }
+              onChange={(e) => setDocumento(sanitizeDocumentoInput(e.target.value))}
               maxLength={30}
               className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
               placeholder="Ej: 1012345678"
@@ -445,6 +519,59 @@ export default function RegistroDominicalPublicoPage({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <select
+            required
+            value={personaForm.departamento}
+            onChange={(e) => {
+              const department = departments.find((item) => item.name === e.target.value);
+              setSelectedDepartmentId(department ? String(department.id) : '');
+              setCities([]);
+              setPersonaForm((prev) => ({
+                ...prev,
+                departamento: sanitizeLocationInput(e.target.value),
+                ciudad: '',
+              }));
+            }}
+            disabled={isLoadingDepartments}
+            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black disabled:bg-slate-100"
+          >
+            <option value="">
+              {isLoadingDepartments ? 'Cargando departamentos...' : 'Departamento'}
+            </option>
+            {departments.map((department) => (
+              <option key={department.id} value={department.name}>
+                {department.name}
+              </option>
+            ))}
+          </select>
+          <select
+            required
+            value={personaForm.ciudad}
+            onChange={(e) =>
+              setPersonaForm((prev) => ({
+                ...prev,
+                ciudad: sanitizeLocationInput(e.target.value),
+              }))
+            }
+            disabled={!personaForm.departamento || isLoadingCities}
+            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black disabled:bg-slate-100"
+          >
+            <option value="">
+              {!personaForm.departamento
+                ? 'Ciudad / Municipio'
+                : isLoadingCities
+                  ? 'Cargando ciudades...'
+                  : 'Ciudad / Municipio'}
+            </option>
+            {cities.map((city) => (
+              <option key={city.id} value={city.name}>
+                {city.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <input
             placeholder="Correo"
             value={personaForm.correo}
@@ -458,7 +585,7 @@ export default function RegistroDominicalPublicoPage({
             className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
           />
           <input
-            placeholder="Barrio"
+            placeholder="Barrio (opcional)"
             value={personaForm.barrio}
             onChange={(e) =>
               setPersonaForm((prev) => ({
@@ -499,6 +626,8 @@ export default function RegistroDominicalPublicoPage({
             className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
           />
         </div>
+
+        {locationError ? <p className="text-sm text-amber-600">{locationError}</p> : null}
 
         <button
           type="submit"

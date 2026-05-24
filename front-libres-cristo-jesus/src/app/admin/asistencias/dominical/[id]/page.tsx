@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, use } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
+import { normalizeAttendanceDateOptions } from '@/lib/attendance-date';
 import { ArrowLeft, ExternalLink, QrCode, Search } from 'lucide-react';
 import { QRCode } from 'react-qrcode-logo';
 
@@ -46,6 +47,8 @@ interface PagedResponse<T> {
   totalPages: number;
 }
 
+type FechasDisponiblesResponse = string[];
+
 export default function DetalleAsistenciaDominicalPage({
   params,
 }: {
@@ -56,9 +59,12 @@ export default function DetalleAsistenciaDominicalPage({
   const [asistencia, setAsistencia] = useState<AsistenciaDominical | null>(null);
   const [registros, setRegistros] = useState<RegistroAsistencia[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fechasDisponibles, setFechasDisponibles] = useState<string[]>([]);
 
   const [search, setSearch] = useState('');
+  const [submittedSearch, setSubmittedSearch] = useState('');
   const [soloNuevos, setSoloNuevos] = useState(false);
+  const [fecha, setFecha] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -68,27 +74,44 @@ export default function DetalleAsistenciaDominicalPage({
     return `${window.location.origin}/asistencia/dominical/${asistencia.qrToken}`;
   }, [asistencia]);
 
-  const fetchData = async () => {
+  const fetchBaseData = async () => {
     setLoading(true);
     try {
-      const [asistenciaRes, registrosRes] = await Promise.all([
+      const [asistenciaRes, fechasRes] = await Promise.all([
         apiClient.get<AsistenciaDominical>(
           `/asistencias-dominicales/${resolvedParams.id}`,
         ),
-        apiClient.get<PagedResponse<RegistroAsistencia>>(
-          `/asistencias-dominicales/${resolvedParams.id}/registros`,
-          {
-            params: {
-              search,
-              soloNuevos,
-              page,
-              limit: 10,
-            },
-          },
+        apiClient.get<FechasDisponiblesResponse>(
+          `/asistencias-dominicales/${resolvedParams.id}/registros/fechas`,
         ),
       ]);
 
       setAsistencia(asistenciaRes.data);
+      setFechasDisponibles(normalizeAttendanceDateOptions(fechasRes.data));
+    } catch (error) {
+      console.error(error);
+      alert('Error cargando el detalle de asistencia');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRegistros = async () => {
+    setLoading(true);
+    try {
+      const registrosRes = await apiClient.get<PagedResponse<RegistroAsistencia>>(
+        `/asistencias-dominicales/${resolvedParams.id}/registros`,
+        {
+          params: {
+            search: submittedSearch,
+            soloNuevos,
+            fecha,
+            page,
+            limit: 10,
+          },
+        },
+      );
+
       setRegistros(registrosRes.data.data);
       setTotalPages(registrosRes.data.totalPages || 1);
     } catch (error) {
@@ -100,14 +123,27 @@ export default function DetalleAsistenciaDominicalPage({
   };
 
   useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, soloNuevos]);
+    const timeoutId = window.setTimeout(() => {
+      void fetchBaseData();
+    }, 0);
 
-  const handleSearch = async (e: React.FormEvent) => {
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedParams.id]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchRegistros();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedParams.id, page, soloNuevos, fecha, submittedSearch]);
+
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    await fetchData();
+    setSubmittedSearch(search);
   };
 
   if (loading && !asistencia) {
@@ -186,11 +222,29 @@ export default function DetalleAsistenciaDominicalPage({
                 className="w-full border border-slate-300 rounded-md pl-9 pr-3 py-2 text-sm"
               />
             </div>
+            <select
+              value={fecha}
+              onChange={(e) => {
+                setFecha(e.target.value);
+                setPage(1);
+              }}
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white text-slate-700"
+            >
+              <option value="">Todas las fechas</option>
+              {fechasDisponibles.map((fechaDisponible) => (
+                <option key={fechaDisponible} value={fechaDisponible}>
+                  {fechaDisponible}
+                </option>
+              ))}
+            </select>
             <label className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={soloNuevos}
-                onChange={(e) => setSoloNuevos(e.target.checked)}
+                onChange={(e) => {
+                  setSoloNuevos(e.target.checked);
+                  setPage(1);
+                }}
               />
               Solo nuevos
             </label>

@@ -84,4 +84,13 @@ export class AsistenciasDominicalesController {
       query,
     );
   }
+
+  @Get(':id/registros/fechas')
+  findFechasDisponiblesByAsistencia(
+    @Param('id') id: string,
+  ): Promise<unknown> {
+    return this.asistenciasDominicalesService.findFechasDisponiblesByAsistencia(
+      id,
+    );
+  }
 }

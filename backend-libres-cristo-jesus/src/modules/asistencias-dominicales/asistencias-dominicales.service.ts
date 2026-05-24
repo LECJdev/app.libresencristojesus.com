@@ -26,6 +26,10 @@ import {
   sanitizeRequiredTextOrThrow,
   sanitizeTokenOrThrow,
 } from '../../common/utils/input-security.util';
+import {
+  normalizeAttendanceDateOrThrow,
+  normalizeOptionalAttendanceDateOrThrow,
+} from '../../common/utils/attendance-date.util';
 
 interface PaginationResult<T> {
   data: T[];
@@ -45,6 +49,7 @@ export interface ListAsistenciasDominicalesQuery {
 export interface ListRegistrosDominicalesQuery {
   search?: string;
   soloNuevos?: string;
+  fecha?: string;
   page?: string;
   limit?: string;
 }
@@ -71,6 +76,8 @@ export interface PersonaRegistroPublicoDto {
   direccion?: string;
   correo?: string;
   edad?: number;
+  departamento?: string;
+  ciudad?: string;
   barrio?: string;
   genero?: Genero;
   fechaNacimiento?: string;
@@ -215,6 +222,7 @@ export class AsistenciasDominicalesService {
     await this.findOne(asistenciaId);
 
     const { page, limit } = this.getPagination(query.page, query.limit);
+    const fecha = this.normalizeFechaFiltro(query.fecha);
 
     const qb = this.registroDominicalRepo
       .createQueryBuilder('registro')
@@ -242,6 +250,10 @@ export class AsistenciasDominicalesService {
       qb.andWhere('registro.esNuevo = true');
     }
 
+    if (fecha) {
+      qb.andWhere('registro.fechaRegistro = :fecha', { fecha });
+    }
+
     const [data, total] = await qb.getManyAndCount();
 
     return {
@@ -251,6 +263,22 @@ export class AsistenciasDominicalesService {
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
     };
+  }
+
+  async findFechasDisponiblesByAsistencia(
+    asistenciaId: string,
+  ): Promise<string[]> {
+    await this.findOne(asistenciaId);
+
+    const rows = await this.registroDominicalRepo
+      .createQueryBuilder('registro')
+      .select('registro.fechaRegistro', 'fechaRegistro')
+      .where('registro.idAsistencia = :asistenciaId', { asistenciaId })
+      .distinct(true)
+      .orderBy('registro.fechaRegistro', 'DESC')
+      .getRawMany<{ fechaRegistro: string }>();
+
+    return rows.map((row) => normalizeAttendanceDateOrThrow(row.fechaRegistro));
   }
 
   async getPublicByToken(token: string): Promise<AsistenciaDominical> {
@@ -404,6 +432,8 @@ export class AsistenciasDominicalesService {
       direccion: sanitizeOptionalText(data.direccion, 255),
       correo: sanitizeOptionalEmail(data.correo),
       edad: sanitizeOptionalEdad(data.edad),
+      departamento: sanitizeOptionalText(data.departamento, 150),
+      ciudad: sanitizeOptionalText(data.ciudad, 150),
       barrio: sanitizeOptionalText(data.barrio, 120),
       genero: data.genero ?? null,
       fechaNacimiento: data.fechaNacimiento || null,
@@ -430,6 +460,10 @@ export class AsistenciasDominicalesService {
         : 10;
 
     return { page, limit };
+  }
+
+  private normalizeFechaFiltro(fecha?: string): string | undefined {
+    return normalizeOptionalAttendanceDateOrThrow(fecha);
   }
 
   private getDiaPredicaFromDate(date: Date): DiaPredica {

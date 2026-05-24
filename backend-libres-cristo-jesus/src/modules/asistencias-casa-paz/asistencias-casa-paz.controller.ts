@@ -81,4 +81,11 @@ export class AsistenciasCasaPazController {
   ): Promise<unknown> {
     return this.asistenciasCasaPazService.findRegistrosByAsistencia(id, query);
   }
+
+  @Get(':id/registros/fechas')
+  findFechasDisponiblesByAsistencia(
+    @Param('id') id: string,
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findFechasDisponiblesByAsistencia(id);
+  }
 }

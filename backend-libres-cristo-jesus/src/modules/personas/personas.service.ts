@@ -4,6 +4,12 @@ import { Repository } from 'typeorm';
 import { Persona } from './persona.entity';
 import { Rol } from '../../common/enums/rol.enum';
 import * as bcrypt from 'bcrypt';
+import {
+  sanitizeCelularOrThrow,
+  sanitizeNombreOrThrow,
+  sanitizeOptionalEmail,
+  sanitizeOptionalText,
+} from '../../common/utils/input-security.util';
 
 export class CreateUserDto {
   nombres: string;
@@ -30,7 +36,21 @@ export class PersonasService {
   }
 
   create(data: Partial<Persona>): Promise<Persona> {
-    const entity = this.personaRepository.create(data);
+    const entity = this.personaRepository.create({
+      ...data,
+      nombres: data.nombres
+        ? sanitizeNombreOrThrow(data.nombres, 'Nombres')
+        : null,
+      apellidos: data.apellidos
+        ? sanitizeNombreOrThrow(data.apellidos, 'Apellidos')
+        : null,
+      celular: data.celular ? sanitizeCelularOrThrow(data.celular) : null,
+      direccion: sanitizeOptionalText(data.direccion ?? undefined, 255),
+      correo: sanitizeOptionalEmail(data.correo ?? undefined),
+      barrio: sanitizeOptionalText(data.barrio ?? undefined, 150),
+      departamento: sanitizeOptionalText(data.departamento ?? undefined, 150),
+      ciudad: sanitizeOptionalText(data.ciudad ?? undefined, 150),
+    });
     return this.personaRepository.save(entity);
   }
 

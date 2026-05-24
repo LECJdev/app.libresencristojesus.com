@@ -65,6 +65,12 @@ export class Persona extends BaseEntity {
   @Column({ type: 'varchar', length: 150, nullable: true })
   barrio: string | null;
 
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  departamento: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  ciudad: string | null;
+
   @Column({ type: 'date', nullable: true })
   fechaNacimiento: string | null;
 

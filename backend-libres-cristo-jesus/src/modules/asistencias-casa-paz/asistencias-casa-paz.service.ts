@@ -293,7 +293,7 @@ export class AsistenciasCasaPazService {
       .where('registro.idAsistencia = :asistenciaId', { asistenciaId })
       .distinct(true)
       .orderBy('registro.fechaRegistro', 'DESC')
-      .getRawMany<{ fechaRegistro: string }>();
+      .getRawMany<{ fechaRegistro: string | Date }>();
 
     return rows.map((row) => normalizeAttendanceDateOrThrow(row.fechaRegistro));
   }

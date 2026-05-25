@@ -156,9 +156,9 @@ export default function NuevoEventoPage() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="mb-6 flex items-center gap-4">
-        <Link href="/admin/eventos" className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+    <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Link href="/admin/eventos" className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:text-slate-600">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
@@ -169,7 +169,7 @@ export default function NuevoEventoPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Información Básica */}
-        <div className="bg-white p-6 rounded-lg shadow border border-slate-200">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow sm:p-6">
           <h2 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Información Básica</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
@@ -206,7 +206,7 @@ export default function NuevoEventoPage() {
         </div>
 
         {/* Campos predeterminados de persona (informativo) */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
           <Info className="h-5 w-5 text-blue-500 mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-medium text-blue-800">Campos predeterminados de la persona</p>
@@ -218,14 +218,14 @@ export default function NuevoEventoPage() {
         </div>
 
         {/* Campos Personalizados */}
-        <div className="bg-white p-6 rounded-lg shadow border border-slate-200">
-          <div className="flex justify-between items-center bg-slate-50 -mx-6 -mt-6 p-4 border-b rounded-t-lg">
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow sm:p-6">
+          <div className="-mx-4 -mt-4 flex flex-col gap-3 rounded-t-lg border-b bg-slate-50 p-4 sm:-mx-6 sm:-mt-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-800">Campos Personalizados (Opcional)</h2>
               <p className="text-sm text-slate-500">Agrega preguntas o secciones específicas para este evento.</p>
             </div>
             <button type="button" onClick={handleAddCampo}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 text-sm font-medium transition-colors">
+              className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:w-auto">
               <Plus className="h-4 w-4" /> Agregar Campo
             </button>
           </div>
@@ -237,9 +237,9 @@ export default function NuevoEventoPage() {
               </div>
             ) : (
               campos.map((campo, index) => (
-                <div key={campo.id} className="p-4 bg-slate-50 border border-slate-200 rounded-md space-y-3">
+                 <div key={campo.id} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
                   {/* Header del campo */}
-                  <div className="flex items-end gap-3">
+                   <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
                     <div className="flex-1 space-y-1">
                       <label className="text-xs font-semibold text-slate-600 uppercase tracking-widest">
                         Campo {index + 1}
@@ -250,7 +250,7 @@ export default function NuevoEventoPage() {
                         value={campo.titulo}
                         onChange={(e) => handleChangeCampo(campo.id, 'titulo', e.target.value)} />
                     </div>
-                    <div className="w-44 space-y-1">
+                     <div className="w-full space-y-1 lg:w-44">
                       <label className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Tipo</label>
                       <select
                         className="w-full border border-slate-300 rounded-md shadow-sm px-3 py-2 text-sm text-slate-900 bg-white"
@@ -266,7 +266,7 @@ export default function NuevoEventoPage() {
                         <option value="persona">Persona 👤</option>
                       </select>
                     </div>
-                    <div className="pb-2 px-1 shrink-0 flex flex-col gap-2">
+                     <div className="flex shrink-0 flex-col gap-2 px-1 pb-2">
                       <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                         <input type="checkbox" className="rounded border-slate-300 focus:ring-slate-500 text-slate-900 bg-white"
                           checked={campo.requerido}
@@ -280,8 +280,8 @@ export default function NuevoEventoPage() {
                         Solo Admin 🛡️
                       </label>
                     </div>
-                    <button type="button" onClick={() => handleRemoveCampo(campo.id)}
-                      className="pb-2 p-2 text-red-500 hover:text-red-700 transition-colors" title="Eliminar campo">
+                     <button type="button" onClick={() => handleRemoveCampo(campo.id)}
+                       className="inline-flex h-10 w-10 items-center justify-center self-start rounded-lg text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 lg:self-auto" title="Eliminar campo">
                       <Trash2 className="h-5 w-5" />
                     </button>
                   </div>
@@ -292,19 +292,19 @@ export default function NuevoEventoPage() {
                       <div className="flex justify-between items-center">
                         <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Columnas de la sublista</p>
                         <button type="button" onClick={() => handleAddColumna(campo.id)}
-                          className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                          className="flex min-h-9 items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
                           <Plus className="h-3 w-3" /> Agregar columna
                         </button>
                       </div>
                       {(campo.columnas || []).map((col, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
+                         <div key={idx} className="flex flex-col gap-2 sm:flex-row sm:items-center">
                           <input type="text" required
                             placeholder={`Nombre de columna ${idx + 1}`}
                             className="flex-1 border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 bg-white placeholder:text-slate-400"
                             value={col.nombre}
                             onChange={(e) => handleChangeColumna(campo.id, idx, 'nombre', e.target.value)} />
                           <button type="button" onClick={() => handleRemoveColumna(campo.id, idx)}
-                            className="p-1 text-red-400 hover:text-red-600" title="Eliminar columna">
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-red-400 hover:bg-red-50 hover:text-red-600" title="Eliminar columna">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -320,19 +320,19 @@ export default function NuevoEventoPage() {
                       <div className="flex justify-between items-center">
                         <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Opciones disponibles</p>
                         <button type="button" onClick={() => handleAddOpcion(campo.id)}
-                          className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                          className="flex min-h-9 items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
                           <Plus className="h-3 w-3" /> Agregar opción
                         </button>
                       </div>
                       {(campo.opciones || []).map((opc: any, idx: number) => (
-                        <div key={idx} className="flex items-center gap-2">
+                         <div key={idx} className="flex flex-col gap-2 sm:flex-row sm:items-center">
                           <input type="text" required
                             placeholder={`Opción ${idx + 1} (Ej. Distrito Norte)`}
                             className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 bg-white placeholder:text-slate-400"
                             value={opc.nombre}
                             onChange={(e) => handleChangeOpcion(campo.id, idx, e.target.value)} />
                           <button type="button" onClick={() => handleRemoveOpcion(campo.id, idx)}
-                            className="p-1.5 text-red-400 hover:text-red-600">✕</button>
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-md p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600">✕</button>
                         </div>
                       ))}
                     </div>
@@ -357,9 +357,9 @@ export default function NuevoEventoPage() {
           </div>
         </div>
 
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-stretch pt-4 sm:justify-end">
           <button type="submit" disabled={loading}
-            className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors shadow-sm font-medium">
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-6 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-slate-800 sm:w-auto">
             {loading ? (
               <span className="animate-spin border-t-2 border-white rounded-full w-4 h-4" />
             ) : (

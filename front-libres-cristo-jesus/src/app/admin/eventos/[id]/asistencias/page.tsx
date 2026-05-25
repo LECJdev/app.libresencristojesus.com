@@ -156,7 +156,8 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
         const cols: { nombre: string }[] = c.columnas || [];
         return (
           <div className="space-y-2">
-            <table className="w-full text-sm border border-slate-200 rounded overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-[480px] w-full overflow-hidden rounded border border-slate-200 text-sm">
               <thead className="bg-slate-50">
                 <tr>
                   {cols.map((col, ci) => <th key={ci} className="px-2 py-1.5 text-left text-xs font-semibold text-slate-600 border-b">{col.nombre}</th>)}
@@ -180,7 +181,8 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
             <button type="button" className="text-xs text-blue-600 hover:text-blue-800 font-medium"
               onClick={() => {
                 const emptyRow: Record<string, string> = {};
@@ -243,19 +245,19 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
     return true;
   });
 
-  if (loading) return <div className="p-8 text-center text-slate-500">Cargando...</div>;
-  if (!evento) return <div className="p-8 text-center text-red-500">Evento no encontrado.</div>;
+  if (loading) return <div className="p-4 text-center text-slate-500 sm:p-6 lg:p-8">Cargando...</div>;
+  if (!evento) return <div className="p-4 text-center text-red-500 sm:p-6 lg:p-8">Evento no encontrado.</div>;
 
   return (
-    <div className="p-8">
-      <div className="flex items-center gap-4 mb-6">
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
         <Link href="/admin/eventos" className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">{evento.nombre}</h1>
           <p className="text-slate-500 text-sm">Registro administrativo de asistencias · {asistencias.length} registrado(s)</p>
         </div>
         <button onClick={() => { setShowRegistro(!showRegistro); setSuccessMsg(''); }}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm">
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-800 sm:w-auto">
           <UserPlus className="h-4 w-4" /> Agregar Persona
         </button>
       </div>
@@ -267,19 +269,19 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
       )}
 
       {showRegistro && (
-        <div className="bg-white p-6 rounded-lg shadow border border-slate-200 mb-6 space-y-4">
+          <div className="mb-6 space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow sm:p-6">
           <h2 className="font-semibold text-slate-800">Buscar y Registrar Asistente</h2>
 
           {!personaEncontrada && !isNewUser && (
-            <form onSubmit={handleSearch} className="flex gap-3">
+            <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input type="text" required placeholder="Buscar por celular o documento..."
                   value={searchDoc} onChange={e => setSearchDoc(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm text-slate-900 bg-white placeholder:text-slate-400" />
+                  className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400" />
               </div>
-              <button type="submit" disabled={isSearching}
-                className="px-4 py-2 bg-slate-900 text-white rounded-md text-sm font-medium hover:bg-slate-800">Buscar</button>
+                <button type="submit" disabled={isSearching}
+                  className="min-h-11 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 sm:w-auto">Buscar</button>
             </form>
           )}
 
@@ -290,35 +292,35 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
                   <strong>{personaEncontrada.nombres} {personaEncontrada.apellidos}</strong> — Cel: {personaEncontrada.celular}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="md:col-span-2 flex gap-2">
-                    <select className="w-1/4 px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white"
+                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="flex flex-col gap-2 md:col-span-2 sm:flex-row">
+                      <select className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 sm:w-28"
                       value={form.tipoDocumento} onChange={e => setForm({ ...form, tipoDocumento: e.target.value })}>
                       <option value="C.C">C.C</option><option value="T.I">T.I</option><option value="C.E">C.E</option>
                     </select>
-                    <input required placeholder="Número de Documento *" value={form.documento} onChange={e => setForm({ ...form, documento: e.target.value })}
-                      className="w-1/2 border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400" />
-                    <input placeholder="Celular" value={form.celular} onChange={e => setForm({ ...form, celular: e.target.value })}
-                      className="w-1/4 border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400" />
+                     <input required placeholder="Número de Documento *" value={form.documento} onChange={e => setForm({ ...form, documento: e.target.value })}
+                       className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 sm:flex-1" />
+                     <input placeholder="Celular" value={form.celular} onChange={e => setForm({ ...form, celular: e.target.value })}
+                       className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 sm:w-40" />
                   </div>
                   <input required placeholder="Nombres *" value={form.nombres} onChange={e => setForm({ ...form, nombres: e.target.value })}
-                    className="border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400" />
+                    className="min-h-11 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 bg-white placeholder:text-slate-400" />
                   <input required placeholder="Apellidos *" value={form.apellidos} onChange={e => setForm({ ...form, apellidos: e.target.value })}
-                    className="border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400" />
+                    className="min-h-11 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 bg-white placeholder:text-slate-400" />
                   
-                  <select required className="border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white"
+                  <select required className="min-h-11 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 bg-white"
                     value={form.genero} onChange={e => setForm({ ...form, genero: e.target.value })}>
                     <option value="">Género *</option><option value="MASCULINO">Masculino</option><option value="FEMENINO">Femenino</option>
                   </select>
-                  <input required type="date" className="border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400"
+                  <input required type="date" className="min-h-11 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 bg-white placeholder:text-slate-400"
                     value={form.fechaNacimiento} onChange={e => setForm({ ...form, fechaNacimiento: e.target.value })} />
-                  <input type="number" placeholder="Edad" className="border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400"
+                  <input type="number" placeholder="Edad" className="min-h-11 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 bg-white placeholder:text-slate-400"
                     value={form.edad} onChange={e => setForm({ ...form, edad: e.target.value })} />
-                  <input type="email" placeholder="Correo Electrónico" className="border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400"
+                  <input type="email" placeholder="Correo Electrónico" className="min-h-11 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 bg-white placeholder:text-slate-400"
                     value={form.correo} onChange={e => setForm({ ...form, correo: e.target.value })} />
-                  <input type="text" placeholder="Dirección" className="border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400"
+                  <input type="text" placeholder="Dirección" className="min-h-11 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 bg-white placeholder:text-slate-400"
                     value={form.direccion} onChange={e => setForm({ ...form, direccion: e.target.value })} />
-                  <input type="text" placeholder="Barrio" className="border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400"
+                  <input type="text" placeholder="Barrio" className="min-h-11 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 bg-white placeholder:text-slate-400"
                     value={form.barrio} onChange={e => setForm({ ...form, barrio: e.target.value })} />
                 </div>
               )}
@@ -337,11 +339,11 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row">
                 <button type="button" onClick={() => { setPersonaEncontrada(null); setIsNewUser(false); setSearchDoc(''); }}
-                  className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50">Cambiar búsqueda</button>
+                  className="flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 sm:w-auto">Cambiar búsqueda</button>
                 <button type="submit" disabled={submitting}
-                  className="px-4 py-2 text-sm bg-slate-900 text-white rounded-md hover:bg-slate-800 font-medium">Registrar Asistencia</button>
+                  className="flex min-h-11 w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 sm:w-auto">Registrar Asistencia</button>
               </div>
             </form>
           )}
@@ -349,17 +351,17 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
       )}
 
       {/* Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col md:flex-row gap-4 mb-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+        <div className="relative flex-1 md:min-w-[16rem] md:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input type="text" placeholder="Buscar nombre, celular o doc..."
             value={searchTermGlobal} onChange={e => setSearchTermGlobal(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm text-slate-900 bg-white placeholder:text-slate-400" />
+            className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400" />
         </div>
         
         {evento.camposPersonalizados?.filter((c: any) => c.tipo === 'sino' || c.tipo === 'opciones').map((c: any) => (
           <select key={c.id} 
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white min-w-[150px]"
+            className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 md:min-w-[150px]"
             value={filtrosValor[c.id] || ''} 
             onChange={e => setFiltrosValor({ ...filtrosValor, [c.id]: e.target.value })}>
             <option value="">Todos ({c.titulo})</option>
@@ -374,12 +376,13 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
         ))}
         {(searchTermGlobal || Object.keys(filtrosValor).some(k => filtrosValor[k])) && (
             <button onClick={() => { setSearchTermGlobal(''); setFiltrosValor({}); }} 
-              className="text-sm font-medium text-red-600 hover:text-red-800 transition-colors px-2">Limpiar filtros</button>
+              className="min-h-11 rounded-lg px-3 text-sm font-medium text-red-600 transition-colors hover:text-red-800 md:px-2">Limpiar filtros</button>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow border border-slate-200 overflow-x-auto">
-        <table className="w-full text-sm text-left whitespace-nowrap">
+      <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+        <div className="min-w-full rounded-lg border border-slate-200 bg-white shadow">
+        <table className="min-w-max w-full whitespace-nowrap text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
             <tr>
               <th className="px-6 py-4 font-semibold">#</th>
@@ -439,11 +442,11 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
                   return <td key={c.id} className="px-6 py-4 text-slate-600 max-w-[200px] truncate" title={String(valor)}>{String(valor)}</td>;
                 })}
                 <td className="px-6 py-4 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => setViewingPersona(a.persona)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded transition-colors" title="Ver Perfil Completo">
+                  <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
+                    <button onClick={() => setViewingPersona(a.persona)} className="rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-blue-600" title="Ver Perfil Completo">
                       <Eye className="h-4 w-4" />
                     </button>
-                    <button onClick={() => { setEditingAsistencia(a); setEditRespuestas(a.datosPersonalizados || {}); }} className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-slate-100 rounded transition-colors" title="Editar Registro">
+                    <button onClick={() => { setEditingAsistencia(a); setEditRespuestas(a.datosPersonalizados || {}); }} className="rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-orange-600" title="Editar Registro">
                       <Pencil className="h-4 w-4" />
                     </button>
                   </div>
@@ -452,13 +455,14 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Modal - Ver Perfil */}
       {viewingPersona && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b">
+            <div className="flex items-center justify-between border-b p-4">
               <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Eye className="h-5 w-5 text-blue-500" /> Perfil de Asistente</h2>
               <button onClick={() => setViewingPersona(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
@@ -467,7 +471,7 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
                 <p className="text-lg font-bold text-slate-900">{viewingPersona.nombres} {viewingPersona.apellidos}</p>
                 <p className="text-slate-500 font-medium tracking-wide mt-1">{viewingPersona.tipoDocumento} {viewingPersona.documento || 'Sin doc'}</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div><span className="font-medium text-slate-500">Celular:</span><br/>{viewingPersona.celular || '—'}</div>
                 <div><span className="font-medium text-slate-500">Género:</span><br/>{viewingPersona.genero || '—'}</div>
                 <div><span className="font-medium text-slate-500">Correo:</span><br/>{viewingPersona.correo || '—'}</div>
@@ -488,7 +492,7 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
               <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Pencil className="h-5 w-5 text-orange-500" /> Editar Registro de Asistencia</h2>
               <button type="button" onClick={() => setEditingAsistencia(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
-            <div className="p-6 overflow-y-auto space-y-4">
+            <div className="space-y-4 overflow-y-auto p-4 sm:p-6">
               <p className="text-sm font-medium text-slate-500 mb-4 bg-orange-50 p-2 rounded">Editando a: <strong className="text-slate-900">{editingAsistencia.persona?.nombres} {editingAsistencia.persona?.apellidos}</strong></p>
               
               {evento.camposPersonalizados?.length > 0 ? evento.camposPersonalizados.map((c: any) => (
@@ -502,9 +506,9 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
                 <div className="text-center text-slate-500 p-4">Este evento no tiene campos personalizados.</div>
               )}
             </div>
-            <div className="p-4 border-t bg-slate-50 flex justify-end gap-2">
-              <button type="button" onClick={() => setEditingAsistencia(null)} className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-md hover:bg-slate-100 font-medium">Cancelar</button>
-              <button type="submit" disabled={submitting} className="px-4 py-2 text-sm bg-slate-900 text-white rounded-md hover:bg-slate-800 font-medium flex items-center gap-2">
+            <div className="flex flex-col-reverse gap-2 border-t bg-slate-50 p-4 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setEditingAsistencia(null)} className="flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:w-auto">Cancelar</button>
+              <button type="submit" disabled={submitting} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 sm:w-auto">
                 {submitting && <span className="animate-spin border-t-2 border-white rounded-full w-4 h-4" />}
                 Guardar Cambios
               </button>

@@ -93,7 +93,7 @@ export default function AdminUsuarios() {
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-gray-200 flex items-center px-8 shadow-sm">
+      <header className="flex min-h-16 items-center border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
             <ShieldCheck className="h-5 w-5" />
@@ -102,7 +102,7 @@ export default function AdminUsuarios() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+      <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
         <div className="max-w-2xl mx-auto">
 
           {/* Form Card */}
@@ -113,7 +113,7 @@ export default function AdminUsuarios() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nombres</label>
                   <input
@@ -215,7 +215,7 @@ export default function AdminUsuarios() {
               <h2 className="text-base font-semibold text-gray-800 mb-4">Usuarios Creados en esta Sesión</h2>
               <div className="space-y-3">
                 {recentUsers.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={u.id} className="flex flex-col gap-3 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-900">{u.nombres} {u.apellidos}</p>
                       <p className="text-xs text-gray-500">{u.celular}</p>

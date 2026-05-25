@@ -265,7 +265,7 @@ export default function AsistenciasDicipuladoPage() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
@@ -284,7 +284,7 @@ export default function AsistenciasDicipuladoPage() {
         </button>
       </div>
 
-      <form onSubmit={handleSearch} className="mb-5 flex gap-2">
+      <form onSubmit={handleSearch} className="mb-5 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
           <Search className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
           <input
@@ -303,8 +303,8 @@ export default function AsistenciasDicipuladoPage() {
         </button>
       </form>
 
-      <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm text-left">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow">
+        <table className="min-w-[820px] w-full text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
             <tr>
               <th className="px-6 py-4 font-semibold">Nombre</th>
@@ -393,7 +393,7 @@ export default function AsistenciasDicipuladoPage() {
         </table>
       </div>
 
-      <div className="mt-4 flex justify-end items-center gap-2 text-sm">
+      <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-end">
         <button
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           disabled={page === 1}
@@ -419,7 +419,7 @@ export default function AsistenciasDicipuladoPage() {
             onSubmit={handleSubmit}
             className="w-full max-w-xl bg-white rounded-lg border border-slate-200 shadow-lg"
           >
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <h2 className="text-lg font-semibold text-slate-900">
                 {editing ? 'Editar Asistencia Dicipulado' : 'Nueva Asistencia Dicipulado'}
               </h2>
@@ -432,7 +432,7 @@ export default function AsistenciasDicipuladoPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="space-y-4 p-4 sm:p-6">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
                 <input
@@ -580,7 +580,7 @@ export default function AsistenciasDicipuladoPage() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-200 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
               <button
                 type="button"
                 onClick={closeForm}

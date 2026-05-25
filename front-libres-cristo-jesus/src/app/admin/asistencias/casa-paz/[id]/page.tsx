@@ -146,16 +146,16 @@ export default function DetalleAsistenciaCasaPazPage({
   };
 
   if (loading && !asistencia) {
-    return <div className="p-8 text-center text-slate-500">Cargando detalle...</div>;
+    return <div className="p-4 text-center text-slate-500 sm:p-6 lg:p-8">Cargando detalle...</div>;
   }
 
   if (!asistencia) {
-    return <div className="p-8 text-center text-red-500">Asistencia no encontrada.</div>;
+    return <div className="p-4 text-center text-red-500 sm:p-6 lg:p-8">Asistencia no encontrada.</div>;
   }
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex items-start gap-3 sm:items-center">
         <Link
           href="/admin/asistencias/casa-paz"
           className="p-2 rounded-md border border-slate-300 text-slate-500 hover:text-slate-700"
@@ -205,12 +205,12 @@ export default function DetalleAsistenciaCasaPazPage({
         </div>
 
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="font-semibold text-slate-900">Personas registradas</h2>
             <span className="text-sm text-slate-500">{registros.length} en esta página</span>
           </div>
 
-          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-2 mb-4">
+          <form onSubmit={handleSearch} className="mb-4 flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
               <Search className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
               <input
@@ -218,7 +218,7 @@ export default function DetalleAsistenciaCasaPazPage({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nombre, documento o celular"
-                className="w-full border border-slate-300 rounded-md pl-9 pr-3 py-2 text-sm"
+                className="min-h-11 w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm"
               />
             </div>
             <select
@@ -227,7 +227,7 @@ export default function DetalleAsistenciaCasaPazPage({
                 setFecha(e.target.value);
                 setPage(1);
               }}
-              className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white text-slate-700"
+              className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 md:w-52"
             >
               <option value="">Todas las fechas</option>
               {fechasDisponibles.map((fechaDisponible) => (
@@ -236,7 +236,7 @@ export default function DetalleAsistenciaCasaPazPage({
                 </option>
               ))}
             </select>
-            <label className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-700">
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 md:justify-center">
               <input
                 type="checkbox"
                 checked={soloNuevos}
@@ -249,14 +249,15 @@ export default function DetalleAsistenciaCasaPazPage({
             </label>
             <button
               type="submit"
-              className="px-4 py-2 border border-slate-300 rounded-md text-sm hover:bg-slate-50"
+              className="min-h-11 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium hover:bg-slate-50 md:w-auto"
             >
               Filtrar
             </button>
           </form>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-md">
-            <table className="w-full text-sm text-left">
+          <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+            <div className="min-w-full rounded-md border border-slate-200">
+            <table className="min-w-[680px] w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Persona</th>
@@ -308,13 +309,14 @@ export default function DetalleAsistenciaCasaPazPage({
                 )}
               </tbody>
             </table>
+            </div>
           </div>
 
-          <div className="mt-4 flex justify-end items-center gap-2 text-sm">
+          <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-end">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1.5 border border-slate-300 rounded-md disabled:opacity-50"
+              className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
             >
               Anterior
             </button>
@@ -324,7 +326,7 @@ export default function DetalleAsistenciaCasaPazPage({
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="px-3 py-1.5 border border-slate-300 rounded-md disabled:opacity-50"
+              className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
             >
               Siguiente
             </button>

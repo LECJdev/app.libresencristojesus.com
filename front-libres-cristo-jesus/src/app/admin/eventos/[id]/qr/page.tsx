@@ -34,8 +34,8 @@ export default function EventoQRPage({ params }: { params: Promise<{ id: string 
     fetchEvento();
   }, [resolvedParams.id]);
 
-  if (loading) return <div className="p-8 text-center">Cargando código QR...</div>;
-  if (!evento) return <div className="p-8 text-center text-red-500">Evento no encontrado.</div>;
+  if (loading) return <div className="p-4 text-center sm:p-6 lg:p-8">Cargando código QR...</div>;
+  if (!evento) return <div className="p-4 text-center text-red-500 sm:p-6 lg:p-8">Evento no encontrado.</div>;
 
   const downloadQR = () => {
     const canvas = document.getElementById('qr-canvas') as HTMLCanvasElement;
@@ -51,8 +51,8 @@ export default function EventoQRPage({ params }: { params: Promise<{ id: string 
   };
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      <div className="mb-6 flex items-center gap-4">
+    <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
+      <div className="mb-6 flex items-start gap-4 sm:items-center">
         <Link href="/admin/eventos" className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
           <ArrowLeft className="h-5 w-5" />
         </Link>
@@ -62,7 +62,7 @@ export default function EventoQRPage({ params }: { params: Promise<{ id: string 
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-lg shadow border border-slate-200 flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-4 shadow sm:p-8">
         {!evento.generaQr ? (
           <div className="text-center py-12">
             <h2 className="text-xl font-bold text-red-600 mb-2">QR Desactivado</h2>
@@ -90,7 +90,7 @@ export default function EventoQRPage({ params }: { params: Promise<{ id: string 
                 Escanea este código o usa el enlace directo para ir al registro público.
               </p>
               
-              <div className="flex gap-4 w-full">
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:gap-4">
                 <button
                   onClick={downloadQR}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors shadow-sm font-medium"

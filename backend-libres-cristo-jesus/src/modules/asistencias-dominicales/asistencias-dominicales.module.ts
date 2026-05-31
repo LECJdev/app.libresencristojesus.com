@@ -5,6 +5,7 @@ import { RegistroAsistenciaDominical } from './registro-asistencia-dominical.ent
 import { AsistenciasDominicalesController } from './asistencias-dominicales.controller';
 import { AsistenciasDominicalesService } from './asistencias-dominicales.service';
 import { Sede } from '../sedes/sede.entity';
+import { Red } from '../redes/red.entity';
 import { Persona } from '../personas/persona.entity';
 
 @Module({
@@ -13,6 +14,7 @@ import { Persona } from '../personas/persona.entity';
       AsistenciaDominical,
       RegistroAsistenciaDominical,
       Sede,
+      Red,
       Persona,
     ]),
   ],

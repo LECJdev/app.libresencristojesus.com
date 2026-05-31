@@ -77,6 +77,7 @@ export interface PersonaRegistroPublicoDto {
   nombres: string;
   apellidos: string;
   celular: string;
+  idRed?: string;
   tipoDocumento?: TipoDocumento;
   direccion?: string;
   correo?: string;
@@ -328,6 +329,7 @@ export class AsistenciasDicipuladosService {
   ): Promise<{
     alreadyRegistered: boolean;
     esNuevo: boolean;
+    needsProfileCompletion: boolean;
     persona: Persona;
     registroId: string;
     fechaRegistro: string;
@@ -348,7 +350,10 @@ export class AsistenciasDicipuladosService {
 
     const documento = sanitizeDocumentoOrThrow(payload.documento);
 
-    let persona = await this.personaRepo.findOne({ where: { documento } });
+    let persona = await this.personaRepo.findOne({
+      where: { documento },
+      relations: ['red', 'red.sede'],
+    });
     let esNuevo = false;
 
     if (!persona) {
@@ -377,6 +382,7 @@ export class AsistenciasDicipuladosService {
       return {
         alreadyRegistered: true,
         esNuevo: existente.esNuevo,
+        needsProfileCompletion: !existente.esNuevo && !persona.idRed,
         persona,
         registroId: existente.id,
         fechaRegistro,
@@ -395,6 +401,7 @@ export class AsistenciasDicipuladosService {
       return {
         alreadyRegistered: false,
         esNuevo,
+        needsProfileCompletion: !esNuevo && !persona.idRed,
         persona,
         registroId: saved.id,
         fechaRegistro,
@@ -411,6 +418,7 @@ export class AsistenciasDicipuladosService {
           return {
             alreadyRegistered: true,
             esNuevo: duplicated.esNuevo,
+            needsProfileCompletion: !duplicated.esNuevo && !persona.idRed,
             persona,
             registroId: duplicated.id,
             fechaRegistro,
@@ -500,6 +508,13 @@ export class AsistenciasDicipuladosService {
     const nombres = sanitizeNombreOrThrow(data.nombres, 'Nombres');
     const apellidos = sanitizeNombreOrThrow(data.apellidos, 'Apellidos');
     const celular = sanitizeCelularOrThrow(data.celular);
+    const idRed = data.idRed
+      ? sanitizeEntityIdOrThrow(data.idRed, 'ID de red')
+      : null;
+
+    if (idRed) {
+      await this.ensureRedExists(idRed);
+    }
 
     const entity = this.personaRepo.create({
       nombres,
@@ -515,10 +530,21 @@ export class AsistenciasDicipuladosService {
       barrio: sanitizeOptionalText(data.barrio, 120),
       genero: data.genero ?? null,
       fechaNacimiento: data.fechaNacimiento || null,
+      idRed,
       rol: Rol.INTEGRANTE,
     });
 
-    return this.personaRepo.save(entity);
+    const saved = await this.personaRepo.save(entity);
+    const persona = await this.personaRepo.findOne({
+      where: { id: saved.id },
+      relations: ['red', 'red.sede'],
+    });
+
+    if (!persona) {
+      throw new NotFoundException('Persona no encontrada después del registro');
+    }
+
+    return persona;
   }
 
   private getPagination(

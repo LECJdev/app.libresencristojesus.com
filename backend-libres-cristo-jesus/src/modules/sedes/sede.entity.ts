@@ -9,6 +9,7 @@ import { BaseEntity } from '../../common/entities/base.entity';
 import { generateCustomId } from '../../common/utils/id-generator.util';
 import { Distrito } from '../distritos/distrito.entity';
 import { AsistenciaNuevos } from '../asistencias/asistencia-nuevos.entity';
+import { Red } from '../redes/red.entity';
 
 @Entity('sede')
 export class Sede extends BaseEntity {
@@ -26,6 +27,9 @@ export class Sede extends BaseEntity {
 
   @OneToMany(() => AsistenciaNuevos, (asist) => asist.sede)
   asistenciasNuevos: AsistenciaNuevos[];
+
+  @OneToMany(() => Red, (red) => red.sede)
+  redes: Red[];
 
   @BeforeInsert()
   generateId() {

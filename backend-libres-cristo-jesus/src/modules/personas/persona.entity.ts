@@ -74,7 +74,13 @@ export class Persona extends BaseEntity {
   @Column({ type: 'date', nullable: true })
   fechaNacimiento: string | null;
 
-  @ManyToOne(() => Red, { nullable: true, onDelete: 'SET NULL' })
+  @Column({ name: 'red_id', type: 'varchar', length: 50, nullable: true })
+  idRed: string | null;
+
+  @ManyToOne(() => Red, (red) => red.personas, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'red_id' })
   red: Red | null;
 

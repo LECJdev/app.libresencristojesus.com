@@ -19,20 +19,34 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
 
   const [formData, setFormData] = useState({
     nombres: '', apellidos: '', celular: '', documento: '', tipoDocumento: 'C.C',
-    direccion: '', correo: '', edad: '', barrio: '', genero: '', fechaNacimiento: ''
+    direccion: '', correo: '', edad: '', barrio: '', genero: '', fechaNacimiento: '', redId: ''
   });
+  const [redes, setRedes] = useState<Array<{ id: string; nombre: string | null; sede?: { id: string; nombre: string | null } | null }>>([]);
 
   const [respuestas, setRespuestas] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
+  const needsRedFollowUp = Boolean(personaEncontrada && !isNewUser && !personaEncontrada.red?.id);
+
+  const formatRedLabel = (red: { id: string; nombre: string | null; sede?: { nombre: string | null } | null }) => {
+    if (red.sede?.nombre) {
+      return `${red.nombre || red.id} · ${red.sede.nombre}`;
+    }
+
+    return red.nombre || red.id;
+  };
 
   useEffect(() => {
     const fetchEvento = async () => {
       try {
-        const res = await axios.get(`${apiBase}/eventos/${resolvedParams.id}`);
-        setEvento(res.data);
+        const [eventoRes, redesRes] = await Promise.all([
+          axios.get(`${apiBase}/eventos/${resolvedParams.id}`),
+          axios.get(`${apiBase}/redes`),
+        ]);
+        setEvento(eventoRes.data);
+        setRedes(redesRes.data);
       } catch (error) {
         console.error('Error cargando evento:', error);
         setErrorMsg('El evento no existe o no está disponible.');
@@ -72,9 +86,22 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
     try {
       let personaId = personaEncontrada?.id;
       if (isNewUser) {
-        const payloadPersona = { ...formData, edad: formData.edad ? parseInt(formData.edad) : null };
+        const payloadPersona = {
+          ...formData,
+          edad: formData.edad ? parseInt(formData.edad) : null,
+          idRed: formData.redId || undefined,
+        };
         const resPersona = await axios.post(`${apiBase}/personas`, payloadPersona);
         personaId = resPersona.data.id;
+      } else if (needsRedFollowUp) {
+        if (!formData.redId) {
+          alert('Selecciona una red para completar tu perfil antes de continuar.');
+          return;
+        }
+
+        await axios.put(`${apiBase}/personas/${personaId}`, {
+          idRed: formData.redId,
+        });
       }
       await axios.post(`${apiBase}/asistencias/evento`, {
         evento: { id: evento.id }, persona: { id: personaId }, datosPersonalizados: respuestas
@@ -90,7 +117,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
     setSearchDoc('');
     setPersonaEncontrada(null);
     setIsNewUser(false);
-    setFormData({ nombres: '', apellidos: '', celular: '', documento: '', tipoDocumento: 'C.C', direccion: '', correo: '', edad: '', barrio: '', genero: '', fechaNacimiento: '' });
+    setFormData({ nombres: '', apellidos: '', celular: '', documento: '', tipoDocumento: 'C.C', direccion: '', correo: '', edad: '', barrio: '', genero: '', fechaNacimiento: '', redId: '' });
     setRespuestas({});
     setSuccess(false);
   };
@@ -360,6 +387,15 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
                     <input required type="text" placeholder="Apellidos *"
                       className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
                       value={formData.apellidos} onChange={(e) => setFormData({...formData, apellidos: e.target.value})} />
+                    <div className="col-span-2">
+                      <select className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white"
+                        value={formData.redId} onChange={(e) => setFormData({...formData, redId: e.target.value})}>
+                        <option value="">Red (opcional)</option>
+                        {redes.map((red) => (
+                          <option key={red.id} value={red.id}>{formatRedLabel(red)}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="col-span-2 flex gap-2">
                       <select className="w-1/4 px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white"
                         value={formData.tipoDocumento} onChange={(e) => setFormData({...formData, tipoDocumento: e.target.value})}>
@@ -406,6 +442,21 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
                   </div>
                 </div>
               )}
+
+              {needsRedFollowUp ? (
+                <div className="space-y-4 bg-amber-50 border border-amber-100 rounded-xl p-5">
+                  <p className="text-sm font-medium text-amber-800">
+                    Ya te encontramos, pero te falta registrar tu red principal.
+                  </p>
+                  <select required className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white"
+                    value={formData.redId} onChange={(e) => setFormData({...formData, redId: e.target.value})}>
+                    <option value="">Selecciona una red</option>
+                    {redes.map((red) => (
+                      <option key={red.id} value={red.id}>{formatRedLabel(red)}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
 
               {/* Preguntas Dinámicas del Evento */}
               {evento?.camposPersonalizados && evento.camposPersonalizados.some((c: any) => !c.administrativo) && (

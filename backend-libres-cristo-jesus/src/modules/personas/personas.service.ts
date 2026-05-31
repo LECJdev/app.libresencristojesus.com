@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Persona } from './persona.entity';
@@ -6,10 +10,12 @@ import { Rol } from '../../common/enums/rol.enum';
 import * as bcrypt from 'bcrypt';
 import {
   sanitizeCelularOrThrow,
+  sanitizeEntityIdOrThrow,
   sanitizeNombreOrThrow,
   sanitizeOptionalEmail,
   sanitizeOptionalText,
 } from '../../common/utils/input-security.util';
+import { Red } from '../redes/red.entity';
 
 export class CreateUserDto {
   nombres: string;
@@ -25,19 +31,28 @@ export class PersonasService {
   constructor(
     @InjectRepository(Persona)
     private readonly personaRepository: Repository<Persona>,
+
+    @InjectRepository(Red)
+    private readonly redRepository: Repository<Red>,
   ) {}
 
   findAll(): Promise<Persona[]> {
-    return this.personaRepository.find();
+    return this.personaRepository.find({ relations: ['red', 'red.sede', 'invitadoPor'] });
   }
 
   findOne(id: string): Promise<Persona | null> {
-    return this.personaRepository.findOneBy({ id });
+    return this.personaRepository.findOne({
+      where: { id },
+      relations: ['red', 'red.sede', 'invitadoPor'],
+    });
   }
 
-  create(data: Partial<Persona>): Promise<Persona> {
+  async create(data: Partial<Persona>): Promise<Persona> {
+    const { red: _ignoredRed, ...restData } = data;
+    const idRed = await this.normalizeRedId(this.extractRequestedRedId(data));
+
     const entity = this.personaRepository.create({
-      ...data,
+      ...restData,
       nombres: data.nombres
         ? sanitizeNombreOrThrow(data.nombres, 'Nombres')
         : null,
@@ -50,14 +65,61 @@ export class PersonasService {
       barrio: sanitizeOptionalText(data.barrio ?? undefined, 150),
       departamento: sanitizeOptionalText(data.departamento ?? undefined, 150),
       ciudad: sanitizeOptionalText(data.ciudad ?? undefined, 150),
+      idRed,
     });
-    return this.personaRepository.save(entity);
+
+    const saved = await this.personaRepository.save(entity);
+    return this.findOneOrThrow(saved.id);
   }
 
   async update(id: string, data: Partial<Persona>): Promise<Persona | null> {
+    const existing = await this.findOne(id);
+    if (!existing) return null;
+
+    const { red: _ignoredRed, ...restData } = data;
+    const idRed = await this.normalizeRedId(
+      this.extractRequestedRedId(data),
+      existing.idRed,
+    );
+
     const personaToUpdate = await this.personaRepository.preload({
       id,
-      ...data,
+      ...restData,
+      nombres:
+        data.nombres !== undefined
+          ? sanitizeOptionalText(data.nombres ?? undefined, 150)
+          : existing.nombres,
+      apellidos:
+        data.apellidos !== undefined
+          ? sanitizeOptionalText(data.apellidos ?? undefined, 150)
+          : existing.apellidos,
+      celular:
+        data.celular !== undefined
+          ? data.celular
+            ? sanitizeCelularOrThrow(data.celular)
+            : null
+          : existing.celular,
+      direccion:
+        data.direccion !== undefined
+          ? sanitizeOptionalText(data.direccion ?? undefined, 255)
+          : existing.direccion,
+      correo:
+        data.correo !== undefined
+          ? sanitizeOptionalEmail(data.correo ?? undefined)
+          : existing.correo,
+      barrio:
+        data.barrio !== undefined
+          ? sanitizeOptionalText(data.barrio ?? undefined, 150)
+          : existing.barrio,
+      departamento:
+        data.departamento !== undefined
+          ? sanitizeOptionalText(data.departamento ?? undefined, 150)
+          : existing.departamento,
+      ciudad:
+        data.ciudad !== undefined
+          ? sanitizeOptionalText(data.ciudad ?? undefined, 150)
+          : existing.ciudad,
+      idRed,
     });
     if (!personaToUpdate) return null;
     await this.personaRepository.save(personaToUpdate);
@@ -69,7 +131,10 @@ export class PersonasService {
   }
 
   findByCelular(celular: string): Promise<Persona | null> {
-    return this.personaRepository.findOneBy({ celular });
+    return this.personaRepository.findOne({
+      where: { celular },
+      relations: ['red', 'red.sede', 'invitadoPor'],
+    });
   }
 
   async createUser(dto: CreateUserDto): Promise<Omit<Persona, 'password'>> {
@@ -103,5 +168,49 @@ export class PersonasService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...result } = saved;
     return result as Omit<Persona, 'password'>;
+  }
+
+  private async normalizeRedId(
+    idRed?: string | null,
+    fallback?: string | null,
+  ): Promise<string | null> {
+    if (idRed === undefined) {
+      return fallback ?? null;
+    }
+
+    if (idRed === null || idRed === '') {
+      return null;
+    }
+
+    const safeId = sanitizeEntityIdOrThrow(idRed, 'ID de red');
+    const red = await this.redRepository.findOneBy({ id: safeId });
+
+    if (!red) {
+      throw new NotFoundException('La red seleccionada no existe');
+    }
+
+    return safeId;
+  }
+
+  private extractRequestedRedId(data: Partial<Persona>): string | null | undefined {
+    if (data.idRed !== undefined) {
+      return data.idRed;
+    }
+
+    if (data.red === null) {
+      return null;
+    }
+
+    return data.red?.id;
+  }
+
+  private async findOneOrThrow(id: string): Promise<Persona> {
+    const persona = await this.findOne(id);
+
+    if (!persona) {
+      throw new NotFoundException('Persona no encontrada');
+    }
+
+    return persona;
   }
 }

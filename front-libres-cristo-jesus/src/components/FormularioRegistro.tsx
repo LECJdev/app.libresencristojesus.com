@@ -28,6 +28,20 @@ interface Props {
   onRegistered: (user: UserData) => void;
 }
 
+interface RedOption {
+  id: string;
+  nombre: string | null;
+  sede?: { id: string; nombre: string | null } | null;
+}
+
+function formatRedLabel(red: RedOption): string {
+  if (red.sede?.nombre) {
+    return `${red.nombre || red.id} · ${red.sede.nombre}`;
+  }
+
+  return red.nombre || red.id;
+}
+
 export default function FormularioRegistro({ initialDocumento, onRegistered }: Props) {
   const [formData, setFormData] = useState({
     ...EMPTY_REGISTRATION_PERSONA_FORM,
@@ -38,6 +52,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
   const [locationError, setLocationError] = useState('');
   const [departments, setDepartments] = useState<ColombiaDepartment[]>([]);
   const [cities, setCities] = useState<ColombiaCity[]>([]);
+  const [redes, setRedes] = useState<RedOption[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
   const [isLoadingCities, setIsLoadingCities] = useState(false);
@@ -50,9 +65,13 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
       setLocationError('');
 
       try {
-        const response = await fetchColombiaDepartments();
+        const [response, redesResponse] = await Promise.all([
+          fetchColombiaDepartments(),
+          apiClient.get<RedOption[]>('/redes'),
+        ]);
         if (!cancelled) {
           setDepartments(response);
+          setRedes(redesResponse.data);
         }
       } catch (err) {
         console.error(err);
@@ -302,6 +321,23 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Red</label>
+              <select
+                name="idRed"
+                value={formData.idRed}
+                onChange={handleChange}
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="">Selecciona una red (opcional)</option>
+                {redes.map((red) => (
+                  <option key={red.id} value={red.id}>
+                    {formatRedLabel(red)}
+                  </option>
+                ))}
+              </select>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Barrio</label>
             <input

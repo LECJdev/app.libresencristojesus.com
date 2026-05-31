@@ -6,6 +6,7 @@ import { AsistenciasCasaPazController } from './asistencias-casa-paz.controller'
 import { AsistenciasCasaPazService } from './asistencias-casa-paz.service';
 import { Red } from '../redes/red.entity';
 import { Persona } from '../personas/persona.entity';
+import { Sede } from '../sedes/sede.entity';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { Persona } from '../personas/persona.entity';
       RegistroAsistenciaCasaPazQr,
       Red,
       Persona,
+      Sede,
     ]),
   ],
   controllers: [AsistenciasCasaPazController],

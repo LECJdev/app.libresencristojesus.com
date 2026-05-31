@@ -9,6 +9,7 @@ import { AsistenciaCasaPazQr } from './asistencia-casa-paz-qr.entity';
 import { RegistroAsistenciaCasaPazQr } from './registro-asistencia-casa-paz-qr.entity';
 import { Red } from '../redes/red.entity';
 import { Persona } from '../personas/persona.entity';
+import { Sede } from '../sedes/sede.entity';
 import { DiaPredica } from '../../common/enums/dia-predica.enum';
 import { EstadoAsistenciaCasaPaz } from '../../common/enums/estado-asistencia-casa-paz.enum';
 import { Rol } from '../../common/enums/rol.enum';
@@ -74,6 +75,7 @@ export interface PersonaRegistroPublicoDto {
   nombres: string;
   apellidos: string;
   celular: string;
+  idRed?: string;
   tipoDocumento?: TipoDocumento;
   direccion?: string;
   correo?: string;
@@ -101,6 +103,9 @@ export class AsistenciasCasaPazService {
 
     @InjectRepository(Red)
     private readonly redRepo: Repository<Red>,
+
+    @InjectRepository(Sede)
+    private readonly sedeRepo: Repository<Sede>,
 
     @InjectRepository(Persona)
     private readonly personaRepo: Repository<Persona>,
@@ -321,6 +326,7 @@ export class AsistenciasCasaPazService {
   ): Promise<{
     alreadyRegistered: boolean;
     esNuevo: boolean;
+    needsProfileCompletion: boolean;
     persona: Persona;
     registroId: string;
     fechaRegistro: string;
@@ -341,7 +347,10 @@ export class AsistenciasCasaPazService {
 
     const documento = sanitizeDocumentoOrThrow(payload.documento);
 
-    let persona = await this.personaRepo.findOne({ where: { documento } });
+    let persona = await this.personaRepo.findOne({
+      where: { documento },
+      relations: ['red', 'red.sede'],
+    });
     let esNuevo = false;
 
     if (!persona) {
@@ -370,6 +379,7 @@ export class AsistenciasCasaPazService {
       return {
         alreadyRegistered: true,
         esNuevo: existente.esNuevo,
+        needsProfileCompletion: !existente.esNuevo && !persona.idRed,
         persona,
         registroId: existente.id,
         fechaRegistro,
@@ -388,6 +398,7 @@ export class AsistenciasCasaPazService {
       return {
         alreadyRegistered: false,
         esNuevo,
+        needsProfileCompletion: !esNuevo && !persona.idRed,
         persona,
         registroId: saved.id,
         fechaRegistro,
@@ -404,6 +415,7 @@ export class AsistenciasCasaPazService {
           return {
             alreadyRegistered: true,
             esNuevo: duplicated.esNuevo,
+            needsProfileCompletion: !duplicated.esNuevo && !persona.idRed,
             persona,
             registroId: duplicated.id,
             fechaRegistro,
@@ -419,6 +431,13 @@ export class AsistenciasCasaPazService {
     const red = await this.redRepo.findOneBy({ id: idRed });
     if (!red) {
       throw new NotFoundException('La red seleccionada no existe');
+    }
+  }
+
+  private async ensureSedeExists(idSede: string): Promise<void> {
+    const sede = await this.sedeRepo.findOneBy({ id: idSede });
+    if (!sede) {
+      throw new NotFoundException('La sede seleccionada no existe');
     }
   }
 
@@ -439,6 +458,13 @@ export class AsistenciasCasaPazService {
     const nombres = sanitizeNombreOrThrow(data.nombres, 'Nombres');
     const apellidos = sanitizeNombreOrThrow(data.apellidos, 'Apellidos');
     const celular = sanitizeCelularOrThrow(data.celular);
+    const idRed = data.idRed
+      ? sanitizeEntityIdOrThrow(data.idRed, 'ID de red')
+      : null;
+
+    if (idRed) {
+      await this.ensureRedExists(idRed);
+    }
 
     const entity = this.personaRepo.create({
       nombres,
@@ -454,10 +480,21 @@ export class AsistenciasCasaPazService {
       barrio: sanitizeOptionalText(data.barrio, 120),
       genero: data.genero ?? null,
       fechaNacimiento: data.fechaNacimiento || null,
+      idRed,
       rol: Rol.INTEGRANTE,
     });
 
-    return this.personaRepo.save(entity);
+    const saved = await this.personaRepo.save(entity);
+    const persona = await this.personaRepo.findOne({
+      where: { id: saved.id },
+      relations: ['red', 'red.sede'],
+    });
+
+    if (!persona) {
+      throw new NotFoundException('Persona no encontrada después del registro');
+    }
+
+    return persona;
   }
 
   private getPagination(

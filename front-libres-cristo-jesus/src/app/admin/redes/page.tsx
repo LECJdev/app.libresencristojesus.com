@@ -8,29 +8,41 @@ interface Red {
   id: string;
   nombre: string;
   detalles: string;
+  idSede: string | null;
+  sede: { id: string; nombre: string | null } | null;
+}
+
+interface SedeOption {
+  id: string;
+  nombre: string | null;
 }
 
 export default function RedesPage() {
   const [items, setItems] = useState<Red[]>([]);
+  const [sedes, setSedes] = useState<SedeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ nombre: '', detalles: '' });
+  const [form, setForm] = useState({ nombre: '', detalles: '', idSede: '' });
 
   const fetchItems = async () => {
     try {
-      const { data } = await apiClient.get('/redes');
-      setItems(data);
+      const [{ data: redesData }, { data: sedesData }] = await Promise.all([
+        apiClient.get('/redes'),
+        apiClient.get('/sedes'),
+      ]);
+      setItems(redesData);
+      setSedes(sedesData);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { fetchItems(); }, []);
 
-  const resetForm = () => { setForm({ nombre: '', detalles: '' }); setEditingId(null); setShowForm(false); };
+  const resetForm = () => { setForm({ nombre: '', detalles: '', idSede: '' }); setEditingId(null); setShowForm(false); };
 
   const handleEdit = (item: Red) => {
-    setForm({ nombre: item.nombre || '', detalles: item.detalles || '' });
+    setForm({ nombre: item.nombre || '', detalles: item.detalles || '', idSede: item.idSede || '' });
     setEditingId(item.id);
     setShowForm(true);
   };
@@ -88,6 +100,16 @@ export default function RedesPage() {
               <input type="text" value={form.detalles} onChange={e => setForm({ ...form, detalles: e.target.value })}
                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white placeholder:text-slate-400" placeholder="Descripción opcional" />
             </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-sm font-medium text-slate-700">Sede *</label>
+              <select required value={form.idSede} onChange={e => setForm({ ...form, idSede: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white">
+                <option value="">Selecciona una sede</option>
+                {sedes.map((sede) => (
+                  <option key={sede.id} value={sede.id}>{sede.nombre || sede.id}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={resetForm} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 sm:w-auto"><X className="h-4 w-4" />Cancelar</button>
@@ -103,16 +125,18 @@ export default function RedesPage() {
             <tr>
               <th className="px-6 py-4 font-semibold">Nombre</th>
               <th className="px-6 py-4 font-semibold">Detalles</th>
+              <th className="px-6 py-4 font-semibold">Sede</th>
               <th className="px-6 py-4 font-semibold text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {items.length === 0 ? (
-              <tr><td colSpan={3} className="px-6 py-8 text-center text-slate-500">No hay redes registradas.</td></tr>
+              <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">No hay redes registradas.</td></tr>
             ) : items.map(item => (
               <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-slate-900">{item.nombre}</td>
                 <td className="px-6 py-4 text-slate-600">{item.detalles || '—'}</td>
+                <td className="px-6 py-4 text-slate-600">{item.sede?.nombre || '—'}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
                     <button onClick={() => handleEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Editar"><Edit2 className="h-4 w-4" /></button>

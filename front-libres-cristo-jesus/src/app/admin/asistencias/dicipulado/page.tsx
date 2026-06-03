@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import QrPdfDownload from '@/components/QrPdfDownload';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Plus,
   Search,
@@ -70,6 +71,7 @@ const ESTADOS: EstadoAsistenciaDicipulado[] = ['ACTIVO', 'INACTIVO'];
 
 export default function AsistenciasDicipuladoPage() {
   const router = useRouter();
+  const { canDeleteData } = useAuth();
 
   const [items, setItems] = useState<AsistenciaDicipulado[]>([]);
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -242,6 +244,7 @@ export default function AsistenciasDicipuladoPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canDeleteData) return;
     if (!confirm('¿Seguro de eliminar esta asistencia de dicipulado?')) return;
 
     try {
@@ -377,13 +380,15 @@ export default function AsistenciasDicipuladoPage() {
                       >
                         <Power className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="p-2 text-slate-400 hover:text-red-600 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canDeleteData && (
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -18,6 +18,10 @@ import type {
   UpdateAsistenciaDicipuladoDto,
 } from './asistencias-dicipulados.service';
 import { EstadoAsistenciaDicipulado } from '../../common/enums/estado-asistencia-dicipulado.enum';
+import {
+  AdminDeleteAccess,
+  AdminWriteAccess,
+} from '../auth/admin-access.decorator';
 
 @Controller('asistencias-dicipulados')
 export class AsistenciasDicipuladosController {
@@ -30,6 +34,7 @@ export class AsistenciasDicipuladosController {
     return this.asistenciasDicipuladosService.findAll(query);
   }
 
+  @AdminWriteAccess()
   @Post()
   create(@Body() payload: CreateAsistenciaDicipuladoDto): Promise<unknown> {
     return this.asistenciasDicipuladosService.create(payload);
@@ -53,6 +58,7 @@ export class AsistenciasDicipuladosController {
     return this.asistenciasDicipuladosService.findOne(id);
   }
 
+  @AdminWriteAccess()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -61,6 +67,7 @@ export class AsistenciasDicipuladosController {
     return this.asistenciasDicipuladosService.update(id, payload);
   }
 
+  @AdminWriteAccess()
   @Patch(':id/estado')
   setEstado(
     @Param('id') id: string,
@@ -69,6 +76,7 @@ export class AsistenciasDicipuladosController {
     return this.asistenciasDicipuladosService.setEstado(id, payload.estado);
   }
 
+  @AdminDeleteAccess()
   @Delete(':id')
   remove(@Param('id') id: string): Promise<unknown> {
     return this.asistenciasDicipuladosService.remove(id);
@@ -91,6 +99,25 @@ export class AsistenciasDicipuladosController {
   ): Promise<unknown> {
     return this.asistenciasDicipuladosService.findFechasDisponiblesByAsistencia(
       id,
+    );
+  }
+
+  @Get(':id/registros/resumen')
+  findResumenByAsistencia(
+    @Param('id') id: string,
+    @Query('fecha') fecha: string,
+  ): Promise<unknown> {
+    return this.asistenciasDicipuladosService.findResumenByAsistencia(id, fecha);
+  }
+
+  @Get(':id/registros/resumen-por-red')
+  findResumenPorRedByAsistencia(
+    @Param('id') id: string,
+    @Query('fecha') fecha: string,
+  ): Promise<unknown> {
+    return this.asistenciasDicipuladosService.findResumenPorRedByAsistencia(
+      id,
+      fecha,
     );
   }
 }

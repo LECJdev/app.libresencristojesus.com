@@ -30,14 +30,14 @@ export class EventosController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Rol.ADMIN, Rol.SUPER_ADMIN)
+  @Roles(Rol.PERSONAL_ADMINISTRATIVO, Rol.ADMIN, Rol.SUPER_ADMIN)
   @Post()
   create(@Body() data: Partial<Evento>): Promise<Evento> {
     return this.eventosService.create(data);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Rol.ADMIN, Rol.SUPER_ADMIN)
+  @Roles(Rol.PERSONAL_ADMINISTRATIVO, Rol.ADMIN, Rol.SUPER_ADMIN)
   @Put(':id')
   update(
     @Param('id') id: string,

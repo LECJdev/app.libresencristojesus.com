@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
 import { LogOut, LayoutDashboard, Users, BarChart3, QrCode, ShieldCheck, CalendarCheck, Network, Building2, MapPin, FolderTree, ChevronDown, ChevronRight, Menu, X } from 'lucide-react';
 import Link from 'next/link';
+import { ROLE_LABELS } from '@/lib/roles';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, isSuperAdmin, logout } = useAuth();
@@ -191,7 +192,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="overflow-hidden">
               <p className="text-sm font-medium truncate">{user?.nombres}</p>
               <p className="text-xs text-slate-400">
-                {user?.rol === 'SUPER_ADMIN' ? 'Super Administrador' : 'Administrador'}
+                {user?.rol ? ROLE_LABELS[user.rol] : 'Administrador'}
               </p>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import QrPdfDownload from '@/components/QrPdfDownload';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Plus,
   Search,
@@ -61,6 +62,7 @@ const ESTADOS: EstadoAsistenciaDominical[] = ['ACTIVO', 'INACTIVO'];
 
 export default function AsistenciasDominicalesPage() {
   const router = useRouter();
+  const { canDeleteData } = useAuth();
 
   const [items, setItems] = useState<AsistenciaDominical[]>([]);
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -196,6 +198,7 @@ export default function AsistenciasDominicalesPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canDeleteData) return;
     if (!confirm('¿Seguro de eliminar esta asistencia dominical?')) return;
 
     try {
@@ -328,13 +331,15 @@ export default function AsistenciasDominicalesPage() {
                       >
                         <Power className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="p-2 text-slate-400 hover:text-red-600 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canDeleteData && (
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

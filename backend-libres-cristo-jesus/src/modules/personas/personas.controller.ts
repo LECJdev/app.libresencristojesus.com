@@ -8,12 +8,20 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
-import { PersonasService, CreateUserDto } from './personas.service';
+import {
+  PersonasService,
+  CreateUserDto,
+  PromotePersonalAdministrativoDto,
+} from './personas.service';
 import { Persona } from './persona.entity';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
+import {
+  AdminDeleteAccess,
+  AdminWriteAccess,
+} from '../auth/admin-access.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { Rol } from '../../common/enums/rol.enum';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 
 @Controller('personas')
 export class PersonasController {
@@ -34,6 +42,7 @@ export class PersonasController {
     return this.personasService.findOne(id);
   }
 
+  @AdminWriteAccess()
   @Post()
   create(@Body() data: Partial<Persona>): Promise<Persona> {
     return this.personasService.create(data);
@@ -46,6 +55,14 @@ export class PersonasController {
     return this.personasService.createUser(dto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.SUPER_ADMIN)
+  @Post('admin/promover-personal-administrativo')
+  promotePersonalAdministrativo(@Body() dto: PromotePersonalAdministrativoDto) {
+    return this.personasService.promoteToPersonalAdministrativo(dto);
+  }
+
+  @AdminWriteAccess()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -54,6 +71,7 @@ export class PersonasController {
     return this.personasService.update(id, data);
   }
 
+  @AdminDeleteAccess()
   @Delete(':id')
   remove(@Param('id') id: string): Promise<void> {
     return this.personasService.remove(id);

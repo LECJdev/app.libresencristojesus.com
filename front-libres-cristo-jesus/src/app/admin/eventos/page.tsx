@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import { Plus, Trash2, QrCode, ClipboardList, Pencil } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Evento {
   id: string;
@@ -13,6 +14,7 @@ interface Evento {
 }
 
 export default function EventosPage() {
+  const { canDeleteData } = useAuth();
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +32,7 @@ export default function EventosPage() {
   useEffect(() => { fetchEventos(); }, []);
 
   const handleDelete = async (id: string) => {
+    if (!canDeleteData) return;
     if (!confirm('¿Seguro de eliminar este evento?')) return;
     try {
       await apiClient.delete(`/eventos/${id}`);
@@ -98,10 +101,12 @@ export default function EventosPage() {
                       className="p-2 text-slate-400 hover:text-orange-500 transition-colors" title="Editar Evento">
                       <Pencil className="h-5 w-5" />
                     </Link>
-                    <button onClick={() => handleDelete(evento.id)}
-                      className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar">
-                      <Trash2 className="h-5 w-5" />
-                    </button>
+                    {canDeleteData && (
+                      <button onClick={() => handleDelete(evento.id)}
+                        className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar">
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

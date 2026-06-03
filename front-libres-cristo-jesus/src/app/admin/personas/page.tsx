@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
-import { Plus, Trash2, Edit2, Save, X, Users, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Users, Search, ShieldPlus } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { ROLE_LABELS, type UserRole } from '@/lib/roles';
 
 interface Persona {
   id: string;
@@ -17,7 +19,7 @@ interface Persona {
   direccion: string | null;
   correo: string | null;
   barrio: string | null;
-  rol: string;
+  rol: UserRole;
   red: { id: string; nombre: string } | null;
   invitadoPor: { id: string; nombres: string; apellidos: string } | null;
 }
@@ -25,6 +27,7 @@ interface Persona {
 interface SelectOption { id: string; nombre?: string; nombres?: string; apellidos?: string; }
 
 export default function PersonasPage() {
+  const { canDeleteData, isSuperAdmin } = useAuth();
   const [items, setItems] = useState<Persona[]>([]);
   const [redes, setRedes] = useState<SelectOption[]>([]);
   const [personas, setPersonas] = useState<SelectOption[]>([]);
@@ -87,9 +90,25 @@ export default function PersonasPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canDeleteData) return;
     if (!confirm('¿Eliminar esta persona?')) return;
     try { await apiClient.delete(`/personas/${id}`); fetchAll(); }
     catch { alert('Error al eliminar'); }
+  };
+
+  const handlePromote = async (personaId: string) => {
+    if (!isSuperAdmin) return;
+    if (!confirm('¿Promover esta persona a Personal Administrativo? Su acceso inicial será con correo + documento.')) return;
+
+    try {
+      await apiClient.post('/personas/admin/promover-personal-administrativo', {
+        personaId,
+      });
+      fetchAll();
+    } catch (error: unknown) {
+      const e = error as { response?: { data?: { message?: string } } };
+      alert(e.response?.data?.message || 'Error al promover la persona');
+    }
   };
 
   const filtered = items.filter(p => {
@@ -241,13 +260,25 @@ export default function PersonasPage() {
                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
                     item.rol === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-700' :
                     item.rol === 'ADMIN' ? 'bg-blue-100 text-blue-700' :
+                    item.rol === 'PERSONAL_ADMINISTRATIVO' ? 'bg-amber-100 text-amber-700' :
                     'bg-slate-100 text-slate-700'
-                  }`}>{item.rol}</span>
+                  }`}>{ROLE_LABELS[item.rol]}</span>
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
+                    {isSuperAdmin && item.rol === 'INTEGRANTE' && item.documento && item.correo && (
+                      <button
+                        onClick={() => handlePromote(item.id)}
+                        className="p-2 text-slate-400 hover:text-amber-600 transition-colors"
+                        title="Promover a Personal Administrativo (correo + documento)"
+                      >
+                        <ShieldPlus className="h-4 w-4" />
+                      </button>
+                    )}
                     <button onClick={() => handleEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Editar"><Edit2 className="h-4 w-4" /></button>
-                    <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                    {canDeleteData && (
+                      <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                    )}
                   </div>
                 </td>
               </tr>

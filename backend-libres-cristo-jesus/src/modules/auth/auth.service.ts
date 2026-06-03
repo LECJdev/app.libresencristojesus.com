@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PersonasService } from '../personas/personas.service';
 import * as bcrypt from 'bcrypt';
 import { Rol } from '../../common/enums/rol.enum';
+import { sanitizeOptionalEmail } from '../../common/utils/input-security.util';
 
 @Injectable()
 export class AuthService {
@@ -11,14 +12,21 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async loginAdmin(celular: string, pass: string) {
-    const persona = await this.personasService.findByCelular(celular);
+  async loginAdmin(correo: string, pass: string) {
+    const normalizedCorreo = sanitizeOptionalEmail(correo);
+    if (!normalizedCorreo) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    const persona = await this.personasService.findByCorreo(normalizedCorreo);
     if (!persona) {
       throw new UnauthorizedException('Usuario no encontrado');
     }
 
     const isAuthorized =
-      persona.rol === Rol.ADMIN || persona.rol === Rol.SUPER_ADMIN;
+      persona.rol === Rol.ADMIN ||
+      persona.rol === Rol.SUPER_ADMIN ||
+      persona.rol === Rol.PERSONAL_ADMINISTRATIVO;
     if (!isAuthorized) {
       throw new UnauthorizedException(
         'No tienes permisos para acceder al sistema',

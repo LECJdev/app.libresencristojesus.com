@@ -9,6 +9,10 @@ import {
 } from '@nestjs/common';
 import { RangosEspiritualesService } from './rangos-espirituales.service';
 import { RangoEspiritual } from './rango-espiritual.entity';
+import {
+  AdminDeleteAccess,
+  AdminWriteAccess,
+} from '../auth/admin-access.decorator';
 
 @Controller('rangos-espirituales')
 export class RangosEspiritualesController {
@@ -26,11 +30,13 @@ export class RangosEspiritualesController {
     return this.rangosEspiritualesService.findOne(id);
   }
 
+  @AdminWriteAccess()
   @Post()
   create(@Body() data: Partial<RangoEspiritual>): Promise<RangoEspiritual> {
     return this.rangosEspiritualesService.create(data);
   }
 
+  @AdminWriteAccess()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -39,6 +45,7 @@ export class RangosEspiritualesController {
     return this.rangosEspiritualesService.update(id, data);
   }
 
+  @AdminDeleteAccess()
   @Delete(':id')
   remove(@Param('id') id: string): Promise<void> {
     return this.rangosEspiritualesService.remove(id);

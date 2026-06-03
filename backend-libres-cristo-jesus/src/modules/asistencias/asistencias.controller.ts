@@ -12,6 +12,10 @@ import { AsistenciaCasaPaz } from './asistencia-casa-paz.entity';
 import { AsistenciaNuevos } from './asistencia-nuevos.entity';
 import { AsistenciaDicipulado } from './asistencia-dicipulado.entity';
 import { AsistenciaEvento } from './asistencia-evento.entity';
+import {
+  AdminDeleteAccess,
+  AdminWriteAccess,
+} from '../auth/admin-access.decorator';
 
 @Controller('asistencias')
 export class AsistenciasController {
@@ -28,6 +32,7 @@ export class AsistenciasController {
     return this.asistenciasService.findOneCasaPaz(id);
   }
 
+  @AdminWriteAccess()
   @Post('casa-paz')
   createCasaPaz(
     @Body() data: Partial<AsistenciaCasaPaz>,
@@ -35,6 +40,7 @@ export class AsistenciasController {
     return this.asistenciasService.createCasaPaz(data);
   }
 
+  @AdminDeleteAccess()
   @Delete('casa-paz/:id')
   removeCasaPaz(@Param('id') id: string): Promise<void> {
     return this.asistenciasService.removeCasaPaz(id);
@@ -51,6 +57,7 @@ export class AsistenciasController {
     return this.asistenciasService.findOneNuevos(id);
   }
 
+  @AdminWriteAccess()
   @Post('nuevos')
   createNuevos(
     @Body() data: Partial<AsistenciaNuevos>,
@@ -58,6 +65,7 @@ export class AsistenciasController {
     return this.asistenciasService.createNuevos(data);
   }
 
+  @AdminDeleteAccess()
   @Delete('nuevos/:id')
   removeNuevos(@Param('id') id: string): Promise<void> {
     return this.asistenciasService.removeNuevos(id);
@@ -76,6 +84,7 @@ export class AsistenciasController {
     return this.asistenciasService.findOneDicipulado(id);
   }
 
+  @AdminWriteAccess()
   @Post('dicipulado')
   createDicipulado(
     @Body() data: Partial<AsistenciaDicipulado>,
@@ -83,6 +92,7 @@ export class AsistenciasController {
     return this.asistenciasService.createDicipulado(data);
   }
 
+  @AdminDeleteAccess()
   @Delete('dicipulado/:id')
   removeDicipulado(@Param('id') id: string): Promise<void> {
     return this.asistenciasService.removeDicipulado(id);
@@ -106,6 +116,7 @@ export class AsistenciasController {
     return this.asistenciasService.findOneEvento(id);
   }
 
+  @AdminWriteAccess()
   @Post('evento')
   createEvento(
     @Body() data: Partial<AsistenciaEvento>,
@@ -113,6 +124,7 @@ export class AsistenciasController {
     return this.asistenciasService.createEvento(data);
   }
 
+  @AdminWriteAccess()
   @Patch('evento/:id')
   updateEvento(
     @Param('id') id: string,
@@ -121,6 +133,7 @@ export class AsistenciasController {
     return this.asistenciasService.updateEvento(id, data);
   }
 
+  @AdminDeleteAccess()
   @Delete('evento/:id')
   removeEvento(@Param('id') id: string): Promise<void> {
     return this.asistenciasService.removeEvento(id);

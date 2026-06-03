@@ -40,6 +40,18 @@ interface PaginationResult<T> {
   totalPages: number;
 }
 
+interface AttendanceDateSummary {
+  fecha: string;
+  totalAsistentes: number;
+  totalNuevos: number;
+}
+
+interface AttendanceRedSummary {
+  idRed: string | null;
+  nombreRed: string | null;
+  totalAsistentes: number;
+}
+
 export interface ListAsistenciasDicipuladosQuery {
   search?: string;
   estado?: EstadoAsistenciaDicipulado;
@@ -304,6 +316,72 @@ export class AsistenciasDicipuladosService {
       .getRawMany<{ fechaRegistro: string | Date }>();
 
     return rows.map((row) => normalizeAttendanceDateOrThrow(row.fechaRegistro));
+  }
+
+  async findResumenByAsistencia(
+    asistenciaId: string,
+    fechaRaw: string,
+  ): Promise<AttendanceDateSummary> {
+    await this.findOne(asistenciaId);
+
+    const fecha = normalizeAttendanceDateOrThrow(
+      fechaRaw,
+      'La fecha de asistencia',
+    );
+
+    const raw = await this.registroDicipuladoRepo
+      .createQueryBuilder('registro')
+      .select('COUNT(*)', 'totalAsistentes')
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN registro.esNuevo = true THEN 1 ELSE 0 END), 0)',
+        'totalNuevos',
+      )
+      .where('registro.idAsistencia = :asistenciaId', { asistenciaId })
+      .andWhere('registro.fechaRegistro = :fecha', { fecha })
+      .getRawOne<{ totalAsistentes: string; totalNuevos: string }>();
+
+    return {
+      fecha,
+      totalAsistentes: Number(raw?.totalAsistentes ?? 0),
+      totalNuevos: Number(raw?.totalNuevos ?? 0),
+    };
+  }
+
+  async findResumenPorRedByAsistencia(
+    asistenciaId: string,
+    fechaRaw: string,
+  ): Promise<AttendanceRedSummary[]> {
+    await this.findOne(asistenciaId);
+
+    const fecha = normalizeAttendanceDateOrThrow(
+      fechaRaw,
+      'La fecha de asistencia',
+    );
+
+    const rows = await this.registroDicipuladoRepo
+      .createQueryBuilder('registro')
+      .leftJoin('registro.persona', 'persona')
+      .leftJoin('persona.red', 'red')
+      .select('persona.red_id', 'idRed')
+      .addSelect('red.nombre', 'nombreRed')
+      .addSelect('COUNT(*)', 'totalAsistentes')
+      .where('registro.idAsistencia = :asistenciaId', { asistenciaId })
+      .andWhere('registro.fechaRegistro = :fecha', { fecha })
+      .groupBy('persona.red_id')
+      .addGroupBy('red.nombre')
+      .orderBy('COUNT(*)', 'DESC')
+      .addOrderBy('red.nombre', 'ASC')
+      .getRawMany<{
+        idRed: string | null;
+        nombreRed: string | null;
+        totalAsistentes: string;
+      }>();
+
+    return rows.map((row) => ({
+      idRed: row.idRed ?? null,
+      nombreRed: row.nombreRed ?? null,
+      totalAsistentes: Number(row.totalAsistentes ?? 0),
+    }));
   }
 
   async getPublicByToken(token: string): Promise<AsistenciaDicipuladoQr> {

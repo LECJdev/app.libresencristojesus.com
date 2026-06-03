@@ -18,6 +18,10 @@ import type {
   UpdateAsistenciaCasaPazDto,
 } from './asistencias-casa-paz.service';
 import { EstadoAsistenciaCasaPaz } from '../../common/enums/estado-asistencia-casa-paz.enum';
+import {
+  AdminDeleteAccess,
+  AdminWriteAccess,
+} from '../auth/admin-access.decorator';
 
 @Controller('asistencias-casa-paz')
 export class AsistenciasCasaPazController {
@@ -30,6 +34,7 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.findAll(query);
   }
 
+  @AdminWriteAccess()
   @Post()
   create(@Body() payload: CreateAsistenciaCasaPazDto): Promise<unknown> {
     return this.asistenciasCasaPazService.create(payload);
@@ -53,6 +58,7 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.findOne(id);
   }
 
+  @AdminWriteAccess()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -61,6 +67,7 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.update(id, payload);
   }
 
+  @AdminWriteAccess()
   @Patch(':id/estado')
   setEstado(
     @Param('id') id: string,
@@ -69,6 +76,7 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.setEstado(id, payload.estado);
   }
 
+  @AdminDeleteAccess()
   @Delete(':id')
   remove(@Param('id') id: string): Promise<unknown> {
     return this.asistenciasCasaPazService.remove(id);
@@ -87,5 +95,24 @@ export class AsistenciasCasaPazController {
     @Param('id') id: string,
   ): Promise<unknown> {
     return this.asistenciasCasaPazService.findFechasDisponiblesByAsistencia(id);
+  }
+
+  @Get(':id/registros/resumen')
+  findResumenByAsistencia(
+    @Param('id') id: string,
+    @Query('fecha') fecha: string,
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findResumenByAsistencia(id, fecha);
+  }
+
+  @Get(':id/registros/resumen-por-red')
+  findResumenPorRedByAsistencia(
+    @Param('id') id: string,
+    @Query('fecha') fecha: string,
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findResumenPorRedByAsistencia(
+      id,
+      fecha,
+    );
   }
 }

@@ -9,6 +9,10 @@ import {
 } from '@nestjs/common';
 import { LideresService } from './lideres.service';
 import { Lider } from './lider.entity';
+import {
+  AdminDeleteAccess,
+  AdminWriteAccess,
+} from '../auth/admin-access.decorator';
 
 @Controller('lideres')
 export class LideresController {
@@ -24,11 +28,13 @@ export class LideresController {
     return this.lideresService.findOne(id);
   }
 
+  @AdminWriteAccess()
   @Post()
   create(@Body() data: Partial<Lider>): Promise<Lider> {
     return this.lideresService.create(data);
   }
 
+  @AdminWriteAccess()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -37,6 +43,7 @@ export class LideresController {
     return this.lideresService.update(id, data);
   }
 
+  @AdminDeleteAccess()
   @Delete(':id')
   remove(@Param('id') id: string): Promise<void> {
     return this.lideresService.remove(id);

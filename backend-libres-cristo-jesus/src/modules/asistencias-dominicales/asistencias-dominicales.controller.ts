@@ -18,6 +18,10 @@ import type {
   UpdateAsistenciaDominicalDto,
 } from './asistencias-dominicales.service';
 import { EstadoAsistenciaDominical } from '../../common/enums/estado-asistencia-dominical.enum';
+import {
+  AdminDeleteAccess,
+  AdminWriteAccess,
+} from '../auth/admin-access.decorator';
 
 @Controller('asistencias-dominicales')
 export class AsistenciasDominicalesController {
@@ -30,6 +34,7 @@ export class AsistenciasDominicalesController {
     return this.asistenciasDominicalesService.findAll(query);
   }
 
+  @AdminWriteAccess()
   @Post()
   create(@Body() payload: CreateAsistenciaDominicalDto): Promise<unknown> {
     return this.asistenciasDominicalesService.create(payload);
@@ -53,6 +58,7 @@ export class AsistenciasDominicalesController {
     return this.asistenciasDominicalesService.findOne(id);
   }
 
+  @AdminWriteAccess()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -61,6 +67,7 @@ export class AsistenciasDominicalesController {
     return this.asistenciasDominicalesService.update(id, payload);
   }
 
+  @AdminWriteAccess()
   @Patch(':id/estado')
   setEstado(
     @Param('id') id: string,
@@ -69,6 +76,7 @@ export class AsistenciasDominicalesController {
     return this.asistenciasDominicalesService.setEstado(id, payload.estado);
   }
 
+  @AdminDeleteAccess()
   @Delete(':id')
   remove(@Param('id') id: string): Promise<unknown> {
     return this.asistenciasDominicalesService.remove(id);
@@ -91,6 +99,25 @@ export class AsistenciasDominicalesController {
   ): Promise<unknown> {
     return this.asistenciasDominicalesService.findFechasDisponiblesByAsistencia(
       id,
+    );
+  }
+
+  @Get(':id/registros/resumen')
+  findResumenByAsistencia(
+    @Param('id') id: string,
+    @Query('fecha') fecha: string,
+  ): Promise<unknown> {
+    return this.asistenciasDominicalesService.findResumenByAsistencia(id, fecha);
+  }
+
+  @Get(':id/registros/resumen-por-red')
+  findResumenPorRedByAsistencia(
+    @Param('id') id: string,
+    @Query('fecha') fecha: string,
+  ): Promise<unknown> {
+    return this.asistenciasDominicalesService.findResumenPorRedByAsistencia(
+      id,
+      fecha,
     );
   }
 }

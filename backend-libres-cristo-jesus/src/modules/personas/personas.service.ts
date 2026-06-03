@@ -10,6 +10,7 @@ import { Rol } from '../../common/enums/rol.enum';
 import * as bcrypt from 'bcrypt';
 import {
   sanitizeCelularOrThrow,
+  sanitizeDocumentoOrThrow,
   sanitizeEntityIdOrThrow,
   sanitizeNombreOrThrow,
   sanitizeOptionalEmail,
@@ -24,6 +25,10 @@ export class CreateUserDto {
   documento?: string;
   rol: Rol;
   password?: string;
+}
+
+export class PromotePersonalAdministrativoDto {
+  personaId: string;
 }
 
 @Injectable()
@@ -137,6 +142,13 @@ export class PersonasService {
     });
   }
 
+  findByCorreo(correo: string): Promise<Persona | null> {
+    return this.personaRepository.findOne({
+      where: { correo },
+      relations: ['red', 'red.sede', 'invitadoPor'],
+    });
+  }
+
   async createUser(dto: CreateUserDto): Promise<Omit<Persona, 'password'>> {
     const existing = await this.findByCelular(dto.celular);
     if (existing) {
@@ -167,6 +179,54 @@ export class PersonasService {
     const saved = await this.personaRepository.save(entity);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...result } = saved;
+    return result as Omit<Persona, 'password'>;
+  }
+
+  async promoteToPersonalAdministrativo(
+    dto: PromotePersonalAdministrativoDto,
+  ): Promise<Omit<Persona, 'password'>> {
+    const personaId = sanitizeEntityIdOrThrow(dto.personaId, 'ID de persona');
+    const persona = await this.findOneOrThrow(personaId);
+
+    if (persona.rol !== Rol.INTEGRANTE) {
+      throw new BadRequestException(
+        'Solo se pueden promover personas registradas con rol INTEGRANTE',
+      );
+    }
+
+    if (!persona.documento) {
+      throw new BadRequestException(
+        'La persona debe tener documento registrado para asignar la contraseña inicial',
+      );
+    }
+
+    if (!persona.correo) {
+      throw new BadRequestException(
+        'La persona debe tener correo registrado para habilitar el acceso administrativo',
+      );
+    }
+
+    const documento = sanitizeDocumentoOrThrow(persona.documento);
+    const correo = sanitizeOptionalEmail(persona.correo);
+
+    if (!correo) {
+      throw new BadRequestException(
+        'La persona debe tener un correo válido para habilitar el acceso administrativo',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(documento, 10);
+
+    await this.personaRepository.update(persona.id, {
+      rol: Rol.PERSONAL_ADMINISTRATIVO,
+      password: hashedPassword,
+      documento,
+      correo,
+    });
+
+    const updated = await this.findOneOrThrow(persona.id);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _, ...result } = updated;
     return result as Omit<Persona, 'password'>;
   }
 

@@ -9,7 +9,7 @@ import {
 import { AuthService } from './auth.service';
 
 export class LoginAdminDto {
-  celular: string;
+  correo: string;
   password: string;
 }
 
@@ -20,9 +20,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async loginAdmin(@Body() body: LoginAdminDto) {
-    if (!body.celular || !body.password) {
+    if (!body.correo || !body.password) {
       throw new UnauthorizedException('Credenciales incompletas');
     }
-    return await this.authService.loginAdmin(body.celular, body.password);
+    return await this.authService.loginAdmin(body.correo, body.password);
   }
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import { Plus, Trash2, Edit2, Save, X, Building2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Sede {
   id: string;
@@ -11,6 +12,7 @@ interface Sede {
 }
 
 export default function SedesPage() {
+  const { canDeleteData } = useAuth();
   const [items, setItems] = useState<Sede[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -42,6 +44,7 @@ export default function SedesPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canDeleteData) return;
     if (!confirm('¿Eliminar esta sede?')) return;
     try { await apiClient.delete(`/sedes/${id}`); fetchItems(); }
     catch { alert('Error al eliminar'); }
@@ -109,7 +112,9 @@ export default function SedesPage() {
                 <td className="px-6 py-4 text-right">
                   <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
                     <button onClick={() => handleEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Editar"><Edit2 className="h-4 w-4" /></button>
-                    <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                    {canDeleteData && (
+                      <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                    )}
                   </div>
                 </td>
               </tr>

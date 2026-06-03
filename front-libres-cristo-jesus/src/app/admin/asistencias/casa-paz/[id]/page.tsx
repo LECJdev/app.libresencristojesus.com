@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState, use } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { normalizeAttendanceDateOptions } from '@/lib/attendance-date';
+import {
+  AttendanceSummaryPanel,
+  type AttendanceRedSummary,
+  type AttendanceSummary,
+} from '@/components/attendance/attendance-summary-panel';
 import { ArrowLeft, ExternalLink, QrCode, Search } from 'lucide-react';
 import { QRCode } from 'react-qrcode-logo';
 
@@ -59,7 +64,10 @@ export default function DetalleAsistenciaCasaPazPage({
 
   const [asistencia, setAsistencia] = useState<AsistenciaCasaPaz | null>(null);
   const [registros, setRegistros] = useState<RegistroAsistencia[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [resumen, setResumen] = useState<AttendanceSummary | null>(null);
+  const [resumenPorRed, setResumenPorRed] = useState<AttendanceRedSummary[]>([]);
+  const [loadingBase, setLoadingBase] = useState(true);
+  const [loadingRegistros, setLoadingRegistros] = useState(false);
   const [fechasDisponibles, setFechasDisponibles] = useState<string[]>([]);
 
   const [search, setSearch] = useState('');
@@ -75,8 +83,10 @@ export default function DetalleAsistenciaCasaPazPage({
     return `${window.location.origin}/asistencia/casa-paz/${asistencia.qrToken}`;
   }, [asistencia]);
 
+  const hasFechaSeleccionada = fecha !== '';
+
   const fetchBaseData = async () => {
-    setLoading(true);
+    setLoadingBase(true);
     try {
       const [asistenciaRes, fechasRes] = await Promise.all([
         apiClient.get<AsistenciaCasaPaz>(`/asistencias-casa-paz/${resolvedParams.id}`),
@@ -91,33 +101,57 @@ export default function DetalleAsistenciaCasaPazPage({
       console.error(error);
       alert('Error cargando el detalle de asistencia');
     } finally {
-      setLoading(false);
+      setLoadingBase(false);
     }
   };
 
   const fetchRegistros = async () => {
-    setLoading(true);
+    if (!hasFechaSeleccionada) {
+      setRegistros([]);
+      setResumen(null);
+      setResumenPorRed([]);
+      setTotalPages(1);
+      return;
+    }
+
+    setLoadingRegistros(true);
     try {
-      const registrosRes = await apiClient.get<PagedResponse<RegistroAsistencia>>(
-        `/asistencias-casa-paz/${resolvedParams.id}/registros`,
-        {
-          params: {
-            search: submittedSearch,
-            soloNuevos,
-            fecha,
-            page,
-            limit: 10,
+      const [registrosRes, resumenRes, resumenPorRedRes] = await Promise.all([
+        apiClient.get<PagedResponse<RegistroAsistencia>>(
+          `/asistencias-casa-paz/${resolvedParams.id}/registros`,
+          {
+            params: {
+              search: submittedSearch,
+              soloNuevos,
+              fecha,
+              page,
+              limit: 10,
+            },
           },
-        },
-      );
+        ),
+        apiClient.get<AttendanceSummary>(
+          `/asistencias-casa-paz/${resolvedParams.id}/registros/resumen`,
+          {
+            params: { fecha },
+          },
+        ),
+        apiClient.get<AttendanceRedSummary[]>(
+          `/asistencias-casa-paz/${resolvedParams.id}/registros/resumen-por-red`,
+          {
+            params: { fecha },
+          },
+        ),
+      ]);
 
       setRegistros(registrosRes.data.data);
+      setResumen(resumenRes.data);
+      setResumenPorRed(resumenPorRedRes.data);
       setTotalPages(registrosRes.data.totalPages || 1);
     } catch (error) {
       console.error(error);
       alert('Error cargando el detalle de asistencia');
     } finally {
-      setLoading(false);
+      setLoadingRegistros(false);
     }
   };
 
@@ -131,13 +165,21 @@ export default function DetalleAsistenciaCasaPazPage({
   }, [resolvedParams.id]);
 
   useEffect(() => {
+    if (!hasFechaSeleccionada) {
+      setRegistros([]);
+      setResumen(null);
+      setResumenPorRed([]);
+      setTotalPages(1);
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       void fetchRegistros();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedParams.id, page, soloNuevos, fecha, submittedSearch]);
+  }, [resolvedParams.id, page, soloNuevos, fecha, submittedSearch, hasFechaSeleccionada]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,7 +187,7 @@ export default function DetalleAsistenciaCasaPazPage({
     setSubmittedSearch(search);
   };
 
-  if (loading && !asistencia) {
+  if (loadingBase && !asistencia) {
     return <div className="p-4 text-center text-slate-500 sm:p-6 lg:p-8">Cargando detalle...</div>;
   }
 
@@ -207,7 +249,9 @@ export default function DetalleAsistenciaCasaPazPage({
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-5">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="font-semibold text-slate-900">Personas registradas</h2>
-            <span className="text-sm text-slate-500">{registros.length} en esta página</span>
+            <span className="text-sm text-slate-500">
+              {hasFechaSeleccionada ? `${registros.length} en esta página` : 'Seleccioná una fecha'}
+            </span>
           </div>
 
           <form onSubmit={handleSearch} className="mb-4 flex flex-col gap-3 md:flex-row">
@@ -218,7 +262,8 @@ export default function DetalleAsistenciaCasaPazPage({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nombre, documento o celular"
-                className="min-h-11 w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm"
+                disabled={!hasFechaSeleccionada}
+                className="min-h-11 w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-500"
               />
             </div>
             <select
@@ -229,7 +274,7 @@ export default function DetalleAsistenciaCasaPazPage({
               }}
               className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 md:w-52"
             >
-              <option value="">Todas las fechas</option>
+              <option value="">Selecciona una fecha</option>
               {fechasDisponibles.map((fechaDisponible) => (
                 <option key={fechaDisponible} value={fechaDisponible}>
                   {fechaDisponible}
@@ -237,23 +282,31 @@ export default function DetalleAsistenciaCasaPazPage({
               ))}
             </select>
             <label className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 md:justify-center">
-              <input
-                type="checkbox"
-                checked={soloNuevos}
-                onChange={(e) => {
-                  setSoloNuevos(e.target.checked);
-                  setPage(1);
+                <input
+                  type="checkbox"
+                  checked={soloNuevos}
+                  disabled={!hasFechaSeleccionada}
+                  onChange={(e) => {
+                    setSoloNuevos(e.target.checked);
+                    setPage(1);
                 }}
               />
               Solo nuevos
             </label>
             <button
               type="submit"
+              disabled={!hasFechaSeleccionada}
               className="min-h-11 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium hover:bg-slate-50 md:w-auto"
             >
               Filtrar
             </button>
           </form>
+
+          <AttendanceSummaryPanel
+            hasSelectedDate={hasFechaSeleccionada}
+            summary={resumen}
+            redSummary={resumenPorRed}
+          />
 
           <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
             <div className="min-w-full rounded-md border border-slate-200">
@@ -268,10 +321,16 @@ export default function DetalleAsistenciaCasaPazPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {loading ? (
+                {loadingRegistros ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
                       Cargando registros...
+                    </td>
+                  </tr>
+                ) : !hasFechaSeleccionada ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                      Seleccioná una fecha para ver los registros.
                     </td>
                   </tr>
                 ) : registros.length === 0 ? (
@@ -315,17 +374,19 @@ export default function DetalleAsistenciaCasaPazPage({
           <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-end">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
+              disabled={!hasFechaSeleccionada || page === 1}
               className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
             >
               Anterior
             </button>
             <span className="text-slate-600">
-              Página {page} de {Math.max(totalPages, 1)}
+              {hasFechaSeleccionada
+                ? `Página ${page} de ${Math.max(totalPages, 1)}`
+                : 'Esperando selección de fecha'}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
+              disabled={!hasFechaSeleccionada || page >= totalPages}
               className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
             >
               Siguiente

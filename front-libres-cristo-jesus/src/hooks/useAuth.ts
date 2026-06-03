@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '../lib/api';
 import { useRouter } from 'next/navigation';
+import {
+  canDeleteData,
+  canManageUsers,
+  isAdminRole,
+  type UserRole,
+} from '../lib/roles';
 
 export interface User {
   id: string;
   nombres: string;
   apellidos: string;
-  rol: 'SUPER_ADMIN' | 'ADMIN' | 'INTEGRANTE';
+  rol: UserRole;
 }
 
 export function useAuth() {
@@ -27,9 +33,9 @@ export function useAuth() {
     checkAuth();
   }, []);
 
-  const loginAdmin = async (celular: string, password: string) => {
+  const loginAdmin = async (correo: string, password: string) => {
     try {
-      const res = await apiClient.post('/auth/login', { celular, password });
+      const res = await apiClient.post('/auth/login', { correo, password });
       const { access_token, user: userData } = res.data;
       localStorage.setItem('LC_AUTH_TOKEN', access_token);
       localStorage.setItem('LC_USER', JSON.stringify(userData));
@@ -53,7 +59,9 @@ export function useAuth() {
     loading,
     loginAdmin,
     logout,
-    isAdmin: user?.rol === 'ADMIN' || user?.rol === 'SUPER_ADMIN',
+    isAdmin: isAdminRole(user?.rol),
     isSuperAdmin: user?.rol === 'SUPER_ADMIN',
+    canDeleteData: canDeleteData(user?.rol),
+    canManageUsers: canManageUsers(user?.rol),
   };
 }

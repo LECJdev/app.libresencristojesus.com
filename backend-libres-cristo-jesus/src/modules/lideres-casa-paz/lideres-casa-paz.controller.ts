@@ -1,5 +1,9 @@
 import { Controller, Get, Post, Delete, Param, Body } from '@nestjs/common';
 import { LideresCasaPazService } from './lideres-casa-paz.service';
+import {
+  AdminDeleteAccess,
+  AdminWriteAccess,
+} from '../auth/admin-access.decorator';
 import { LiderCasaDePaz } from './lider-casa-paz.entity';
 
 @Controller('lideres-casa-paz')
@@ -16,11 +20,13 @@ export class LideresCasaPazController {
     return this.lideresCasaPazService.findOne(id);
   }
 
+  @AdminWriteAccess()
   @Post()
   create(@Body() data: Partial<LiderCasaDePaz>): Promise<LiderCasaDePaz> {
     return this.lideresCasaPazService.create(data);
   }
 
+  @AdminDeleteAccess()
   @Delete(':id')
   remove(@Param('id') id: string): Promise<void> {
     return this.lideresCasaPazService.remove(id);

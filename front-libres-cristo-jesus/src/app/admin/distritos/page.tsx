@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import { Plus, Trash2, Edit2, Save, X, MapPin } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Distrito {
   id: string;
@@ -13,6 +14,7 @@ interface Distrito {
 interface SelectOption { id: string; nombre: string; }
 
 export default function DistritosPage() {
+  const { canDeleteData } = useAuth();
   const [items, setItems] = useState<Distrito[]>([]);
   const [redes, setRedes] = useState<SelectOption[]>([]);
   const [sedes, setSedes] = useState<SelectOption[]>([]);
@@ -57,6 +59,7 @@ export default function DistritosPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canDeleteData) return;
     if (!confirm('¿Eliminar este distrito?')) return;
     try { await apiClient.delete(`/distritos/${id}`); fetchAll(); }
     catch { alert('Error al eliminar'); }
@@ -132,7 +135,9 @@ export default function DistritosPage() {
                 <td className="px-6 py-4 text-right">
                   <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
                     <button onClick={() => handleEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Editar"><Edit2 className="h-4 w-4" /></button>
-                    <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                    {canDeleteData && (
+                      <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                    )}
                   </div>
                 </td>
               </tr>

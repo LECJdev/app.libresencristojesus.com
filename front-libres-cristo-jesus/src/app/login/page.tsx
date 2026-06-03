@@ -8,7 +8,7 @@ import { ShieldCheck, UserIcon, LockIcon } from 'lucide-react';
 export default function LoginPage() {
   const { loginAdmin } = useAuth();
   const router = useRouter();
-  const [correo, setCorreo] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const res = await loginAdmin(correo, password);
+    const res = await loginAdmin(identifier, password);
 
     if (res.success) {
       router.push('/admin');
@@ -48,21 +48,21 @@ export default function LoginPage() {
         <div className="bg-slate-800/60 backdrop-blur-sm py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-slate-700/50">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="correo" className="block text-sm font-medium text-slate-300">
-                Correo
+              <label htmlFor="identifier" className="block text-sm font-medium text-slate-300">
+                Usuario
               </label>
               <div className="mt-1 relative rounded-lg shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <UserIcon className="h-5 w-5 text-slate-500" />
                 </div>
                 <input
-                  id="correo"
-                  type="email"
+                  id="identifier"
+                  type="text"
                   required
-                  value={correo}
-                  onChange={(e) => setCorreo(e.target.value)}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="bg-slate-900/50 border border-slate-600 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent block w-full pl-10 sm:text-sm rounded-lg py-3"
-                  placeholder="Ej: persona@correo.com"
+                  placeholder="Ingresá tu correo, celular o usuario"
                 />
               </div>
             </div>
@@ -86,7 +86,7 @@ export default function LoginPage() {
                 />
               </div>
               <p className="mt-2 text-xs text-slate-400">
-                Personal administrativo: ingresá con tu correo registrado y tu documento como contraseña inicial.
+                Ingresá tu correo, celular o usuario y tu contraseña. Si sos personal administrativo promovido, tu contraseña inicial es tu documento.
               </p>
             </div>
 

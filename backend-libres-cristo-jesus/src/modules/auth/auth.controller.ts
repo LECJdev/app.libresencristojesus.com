@@ -9,7 +9,8 @@ import {
 import { AuthService } from './auth.service';
 
 export class LoginAdminDto {
-  correo: string;
+  identifier?: string;
+  correo?: string;
   password: string;
 }
 
@@ -20,9 +21,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async loginAdmin(@Body() body: LoginAdminDto) {
-    if (!body.correo || !body.password) {
+    const identifier = body.identifier ?? body.correo;
+
+    if (!identifier || !body.password) {
       throw new UnauthorizedException('Credenciales incompletas');
     }
-    return await this.authService.loginAdmin(body.correo, body.password);
+    return await this.authService.loginAdmin(identifier, body.password);
   }
 }

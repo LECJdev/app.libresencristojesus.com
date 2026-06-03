@@ -33,9 +33,9 @@ export function useAuth() {
     checkAuth();
   }, []);
 
-  const loginAdmin = async (correo: string, password: string) => {
+  const loginAdmin = async (identifier: string, password: string) => {
     try {
-      const res = await apiClient.post('/auth/login', { correo, password });
+      const res = await apiClient.post('/auth/login', { identifier, password });
       const { access_token, user: userData } = res.data;
       localStorage.setItem('LC_AUTH_TOKEN', access_token);
       localStorage.setItem('LC_USER', JSON.stringify(userData));

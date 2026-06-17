@@ -1,4 +1,4 @@
-import PublicAttendanceFlow from '@/components/public-attendance/PublicAttendanceFlow';
+import DominicalAttendanceFlow from '@/components/public-attendance/DominicalAttendanceFlow';
 import { publicAttendanceConfigs } from '@/components/public-attendance/publicAttendanceConfigs';
 
 export default function RegistroDominicalPublicoPage({
@@ -7,7 +7,7 @@ export default function RegistroDominicalPublicoPage({
   params: Promise<{ token: string }>;
 }) {
   return (
-    <PublicAttendanceFlow
+    <DominicalAttendanceFlow
       params={params}
       attendanceLabel="Registro Dominical"
       successMessage="Tu asistencia dominical quedó registrada correctamente."

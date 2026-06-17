@@ -5,9 +5,12 @@ import { QRCode } from 'react-qrcode-logo';
 import axios from 'axios';
 import { Search, CheckCircle2, User, UserPlus, QrCode } from 'lucide-react';
 import PersonaSearchInput from '@/components/PersonaSearchInput';
+import BrandLogo from '@/components/BrandLogo';
 
 export default function RegistroPublicoPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
+  const fieldClassName = 'w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400';
+  const selectClassName = `${fieldClassName} cursor-pointer`;
   const [evento, setEvento] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -137,6 +140,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
         <div className="bg-white max-w-sm w-full p-8 rounded-2xl shadow-xl border border-slate-100 text-center">
+          <BrandLogo variant="horizontal" className="mx-auto mb-6 h-14 w-auto object-contain" />
           <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="h-10 w-10 text-green-600" />
           </div>
@@ -161,7 +165,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
       case 'sino':
         return (
           <select required={campo.requerido}
-            className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm text-slate-900 bg-white cursor-pointer"
+            className={selectClassName}
             value={respuestas[campo.id] || ''}
             onChange={(e) => setRespuestas({ ...respuestas, [campo.id]: e.target.value })}>
             <option value="">Selecciona...</option>
@@ -173,7 +177,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
       case 'opciones':
         return (
           <select required={campo.requerido}
-            className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm text-slate-900 bg-white cursor-pointer"
+            className={selectClassName}
             value={respuestas[campo.id] || ''}
             onChange={(e) => setRespuestas({ ...respuestas, [campo.id]: e.target.value })}>
             <option value="">Selecciona una opción...</option>
@@ -248,7 +252,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
                         </td>
                       ))}
                       <td className="px-2 py-1 text-center">
-                        <button type="button" className="text-red-400 hover:text-red-600 text-xs"
+                        <button type="button" className="text-xs text-red-500 hover:text-red-700"
                           onClick={() => {
                             const newRows = [...rows]; newRows.splice(fi, 1);
                             setRespuestas({ ...respuestas, [campo.id]: newRows });
@@ -292,7 +296,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
       case 'parrafo':
         return (
           <textarea required={campo.requerido} rows={3}
-            className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm text-slate-900 bg-white placeholder:text-slate-400"
+            className={fieldClassName}
             value={respuestas[campo.id] || ''}
             onChange={(e) => setRespuestas({ ...respuestas, [campo.id]: e.target.value })} />
         );
@@ -300,7 +304,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
       default: // texto
         return (
           <input type="text" required={campo.requerido}
-            className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm text-slate-900 bg-white placeholder:text-slate-400"
+            className={fieldClassName}
             value={respuestas[campo.id] || ''}
             onChange={(e) => setRespuestas({ ...respuestas, [campo.id]: e.target.value })} />
         );
@@ -314,8 +318,9 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
         {/* Encabezado y QR */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden text-center relative">
           <div className="bg-slate-900 px-6 py-8 text-white">
+            <BrandLogo variant="horizontal" className="mx-auto mb-5 h-16 w-auto object-contain" priority />
             <h1 className="text-2xl font-bold mb-2">{evento.nombre}</h1>
-            <p className="text-slate-300 text-sm">Registro de Asistencia Oficial</p>
+            <p className="text-slate-300 text-sm">Libres en Cristo Jesús · Registro de Asistencia Oficial</p>
           </div>
           <div className="p-6 flex flex-col items-center">
             <p className="text-sm text-slate-500 mb-4 tracking-wide uppercase font-semibold flex items-center gap-2">
@@ -382,13 +387,13 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
                   </p>
                   <div className="grid grid-cols-2 gap-4">
                     <input required type="text" placeholder="Nombres *"
-                      className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
+                      className={fieldClassName}
                       value={formData.nombres} onChange={(e) => setFormData({...formData, nombres: e.target.value})} />
                     <input required type="text" placeholder="Apellidos *"
-                      className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
+                      className={fieldClassName}
                       value={formData.apellidos} onChange={(e) => setFormData({...formData, apellidos: e.target.value})} />
                     <div className="col-span-2">
-                      <select className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white"
+                      <select className={selectClassName}
                         value={formData.redId} onChange={(e) => setFormData({...formData, redId: e.target.value})}>
                         <option value="">Red (opcional)</option>
                         {redes.map((red) => (
@@ -412,7 +417,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
                     </div>
 
                     {/* Nuevos Datos Biográficos */}
-                    <select required className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white"
+                    <select required className={selectClassName}
                       value={formData.genero} onChange={(e) => setFormData({...formData, genero: e.target.value})}>
                       <option value="">Género *</option>
                       <option value="MASCULINO">Masculino</option>
@@ -420,23 +425,23 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
                     </select>
                     
                     <input required type="date" placeholder="Fecha Nacimiento *"
-                      className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
+                      className={fieldClassName}
                       value={formData.fechaNacimiento} onChange={(e) => setFormData({...formData, fechaNacimiento: e.target.value})} />
 
                     <input type="number" placeholder="Edad"
-                      className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
+                      className={fieldClassName}
                       value={formData.edad} onChange={(e) => setFormData({...formData, edad: e.target.value})} />
 
                     <input type="email" placeholder="Correo Electrónico"
-                      className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
+                      className={fieldClassName}
                       value={formData.correo} onChange={(e) => setFormData({...formData, correo: e.target.value})} />
 
                     <input type="text" placeholder="Dirección"
-                      className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
+                      className={fieldClassName}
                       value={formData.direccion} onChange={(e) => setFormData({...formData, direccion: e.target.value})} />
 
                     <input type="text" placeholder="Barrio"
-                      className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white placeholder:text-slate-400"
+                      className={fieldClassName}
                       value={formData.barrio} onChange={(e) => setFormData({...formData, barrio: e.target.value})} />
 
                   </div>
@@ -448,7 +453,7 @@ export default function RegistroPublicoPage({ params }: { params: Promise<{ id: 
                   <p className="text-sm font-medium text-amber-800">
                     Ya te encontramos, pero te falta registrar tu red principal.
                   </p>
-                  <select required className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 text-slate-900 bg-white"
+                  <select required className={selectClassName}
                     value={formData.redId} onChange={(e) => setFormData({...formData, redId: e.target.value})}>
                     <option value="">Selecciona una red</option>
                     {redes.map((red) => (

@@ -73,6 +73,7 @@ export default function DistritosPage() {
         <div className="flex items-start gap-3 sm:items-center">
           <div className="p-2 bg-green-50 text-green-600 rounded-lg"><MapPin className="h-6 w-6" /></div>
           <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Libres en Cristo Jesús</p>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Distritos</h1>
             <p className="text-slate-500 text-sm">Gestiona los distritos y su asociación con Redes y Sedes.</p>
           </div>

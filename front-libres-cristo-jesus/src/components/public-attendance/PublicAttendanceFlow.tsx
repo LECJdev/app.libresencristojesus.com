@@ -31,6 +31,7 @@ import {
   PublicAttendanceFlowConfig,
   PublicAttendanceSummaryFieldConfig,
 } from './publicAttendanceConfigs';
+import BrandLogo from '@/components/BrandLogo';
 
 type Step =
   | 'LOADING'
@@ -53,6 +54,7 @@ interface PersonaSummary {
   nombres: string | null;
   apellidos: string | null;
   documento: string | null;
+  fechaNacimiento: string | null;
   red: {
     id: string;
     nombre: string | null;
@@ -64,6 +66,10 @@ interface RegistroResponse {
   alreadyRegistered: boolean;
   esNuevo: boolean;
   needsProfileCompletion: boolean;
+  profileCompletion?: {
+    needsRed: boolean;
+    needsFechaNacimiento: boolean;
+  };
   persona: PersonaSummary;
   registroId: string;
   fechaRegistro: string;
@@ -81,11 +87,6 @@ function formatRedLabel(red: RedOption): string {
   }
 
   return red.nombre || red.id;
-}
-
-interface SummaryField {
-  label: string;
-  value: ReactNode;
 }
 
 interface Props {
@@ -254,6 +255,10 @@ export default function PublicAttendanceFlow({
   config,
 }: Props) {
   const resolvedParams = use(params);
+  const fieldClassName =
+    'w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-black disabled:bg-slate-100';
+  const primaryButtonClassName =
+    'w-full bg-slate-900 text-white rounded-md py-2.5 text-sm font-medium hover:bg-slate-800 disabled:opacity-60';
   const { userData, saveUserData, clearUserData, isLoaded } = useUserStorage();
 
   const [attendance, setAttendance] = useState<BaseAttendance | null>(null);
@@ -273,6 +278,7 @@ export default function PublicAttendanceFlow({
   const [isLoadingCities, setIsLoadingCities] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [followUpRedId, setFollowUpRedId] = useState('');
+  const [followUpBirthDate, setFollowUpBirthDate] = useState('');
   const [followUpError, setFollowUpError] = useState('');
   const [isSavingFollowUp, setIsSavingFollowUp] = useState(false);
 
@@ -285,6 +291,18 @@ export default function PublicAttendanceFlow({
     (step === 'SUCCESS' || step === 'ALREADY_REGISTERED') &&
     !!lastResult?.needsProfileCompletion &&
     !lastResult?.esNuevo;
+  const followUpNeedsRed = !!lastResult?.profileCompletion?.needsRed;
+  const followUpNeedsBirthDate = !!lastResult?.profileCompletion?.needsFechaNacimiento;
+  const isRedOnlyFollowUp = followUpNeedsRed && !followUpNeedsBirthDate;
+  const isFollowUpSubmitDisabled =
+    isSavingFollowUp ||
+    (followUpNeedsRed && (!followUpRedId || redes.length === 0)) ||
+    (followUpNeedsBirthDate && !followUpBirthDate);
+  const followUpSubmitLabel = isSavingFollowUp
+    ? 'Guardando...'
+    : isRedOnlyFollowUp
+      ? 'Guardar red'
+      : 'Guardar datos';
 
   const handleRegistrarOtraPersona = () => {
     clearUserData();
@@ -295,6 +313,7 @@ export default function PublicAttendanceFlow({
     setDocumento('');
     setErrorMsg('');
     setFollowUpRedId('');
+    setFollowUpBirthDate('');
     setFollowUpError('');
     setStep('ASK_DOCUMENT');
   };
@@ -423,6 +442,7 @@ export default function PublicAttendanceFlow({
   const manejarExito = (response: RegistroResponse) => {
     setLastResult(response);
     setFollowUpRedId(response.persona.red?.id || '');
+    setFollowUpBirthDate(response.persona.fechaNacimiento || '');
     setFollowUpError('');
 
     const documentoFinal = response.persona.documento || documento;
@@ -522,8 +542,16 @@ export default function PublicAttendanceFlow({
       return;
     }
 
-    if (!followUpRedId) {
+    const needsRed = followUpNeedsRed;
+    const needsFechaNacimiento = followUpNeedsBirthDate;
+
+    if (needsRed && !followUpRedId) {
       setFollowUpError('Seleccioná una red para completar tu perfil.');
+      return;
+    }
+
+    if (needsFechaNacimiento && !followUpBirthDate) {
+      setFollowUpError('Seleccioná tu fecha de nacimiento para completar tu perfil.');
       return;
     }
 
@@ -531,8 +559,11 @@ export default function PublicAttendanceFlow({
     setFollowUpError('');
 
     try {
-      await apiClient.put(`/personas/${lastResult.persona.id}`, {
-        idRed: followUpRedId,
+      await apiClient.put(buildEndpoint(config.followUpEndpoint, resolvedParams.token), {
+        personaId: lastResult.persona.id,
+        documento: lastResult.persona.documento || documento,
+        idRed: needsRed ? followUpRedId : undefined,
+        fechaNacimiento: needsFechaNacimiento ? followUpBirthDate : undefined,
       });
 
       const red = redes.find((item) => item.id === followUpRedId) || null;
@@ -541,11 +572,16 @@ export default function PublicAttendanceFlow({
           ? {
               ...prev,
               needsProfileCompletion: false,
+              profileCompletion: {
+                needsRed: false,
+                needsFechaNacimiento: false,
+              },
               persona: {
                 ...prev.persona,
+                fechaNacimiento: followUpBirthDate || prev.persona.fechaNacimiento,
                 red: red
                   ? { id: red.id, nombre: red.nombre, sede: red.sede }
-                  : { id: followUpRedId, nombre: null, sede: null },
+                  : prev.persona.red,
               },
             }
           : prev,
@@ -602,13 +638,14 @@ export default function PublicAttendanceFlow({
     }));
 
     return (
-      <div className="w-full max-w-md mx-auto mt-8 space-y-4">
+      <div className="mx-auto mt-8 w-full max-w-md space-y-4">
         <div className="p-8 bg-white rounded-xl shadow-lg text-center">
+          <BrandLogo variant="horizontal" className="mx-auto mb-5 h-14 w-auto object-contain" />
           <div className="flex justify-center mb-5">
             <CheckCircle2 className="h-16 w-16 text-green-500" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">{title}</h2>
-          <p className="text-slate-500 mb-6">{message}</p>
+          <h2 className="mb-2 text-2xl font-bold text-slate-900">{title}</h2>
+          <p className="mb-6 text-slate-500">{message}</p>
 
           <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 text-left text-sm text-slate-700 space-y-1">
             {summaryFields.map((field) => (
@@ -638,43 +675,60 @@ export default function PublicAttendanceFlow({
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">
-                  Completá tu red principal
+                  Completá tu perfil principal
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Ya registramos tu asistencia. Antes de terminar, guardá tu red para próximos registros.
+                  Ya registramos tu asistencia. Antes de terminar, completá los datos que faltan para próximos registros.
                 </p>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Red
-              </label>
-              <select
-                value={followUpRedId}
-                onChange={(e) => setFollowUpRedId(e.target.value)}
-                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-black disabled:bg-slate-100"
-                disabled={isSavingFollowUp || redes.length === 0}
-              >
-                <option value="">
-                  {redes.length === 0 ? 'No hay redes disponibles' : 'Seleccioná una red'}
-                </option>
-                {redes.map((red) => (
-                  <option key={red.id} value={red.id}>
-                    {formatRedLabel(red)}
+            {followUpNeedsRed ? (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Red
+                </label>
+                <select
+                  value={followUpRedId}
+                  onChange={(e) => setFollowUpRedId(e.target.value)}
+                  className={fieldClassName}
+                  disabled={isSavingFollowUp || redes.length === 0}
+                >
+                  <option value="">
+                    {redes.length === 0 ? 'No hay redes disponibles' : 'Seleccioná una red'}
                   </option>
-                ))}
-              </select>
-            </div>
+                  {redes.map((red) => (
+                    <option key={red.id} value={red.id}>
+                      {formatRedLabel(red)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {followUpNeedsBirthDate ? (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Fecha de nacimiento
+                </label>
+                <input
+                  type="date"
+                  value={followUpBirthDate}
+                  onChange={(e) => setFollowUpBirthDate(e.target.value)}
+                  className={fieldClassName}
+                  disabled={isSavingFollowUp}
+                />
+              </div>
+            ) : null}
 
             {followUpError ? <p className="text-sm text-red-600">{followUpError}</p> : null}
 
             <button
               type="submit"
-              disabled={isSavingFollowUp || redes.length === 0}
-              className="w-full bg-blue-600 text-white rounded-md py-2.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+              disabled={isFollowUpSubmitDisabled}
+              className={primaryButtonClassName}
             >
-              {isSavingFollowUp ? 'Guardando...' : 'Guardar red'}
+              {followUpSubmitLabel}
             </button>
           </form>
         ) : null}
@@ -685,14 +739,15 @@ export default function PublicAttendanceFlow({
   if (step === 'ASK_DOCUMENT') {
     return (
       <div className="w-full max-w-md mx-auto mt-8 p-6 bg-white rounded-xl shadow-lg">
-        <h2 className="text-xl font-semibold text-slate-900 mb-1">{attendanceLabel}</h2>
-        <div className="text-sm text-slate-500 mb-5">
+        <BrandLogo variant="horizontal" className="mb-5 h-12 w-auto object-contain" />
+        <h2 className="mb-1 text-xl font-semibold text-slate-900">{attendanceLabel}</h2>
+        <div className="mb-5 text-sm text-slate-500">
           {attendance ? resolveDescriptionLines(attendance, config.askDescriptionLines) : null}
         </div>
 
         <form onSubmit={handleSubmitDocumento} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               Documento de identidad o extranjería
             </label>
             <input
@@ -701,14 +756,14 @@ export default function PublicAttendanceFlow({
               value={documento}
               onChange={(e) => setDocumento(sanitizeDocumentoInput(e.target.value))}
               maxLength={30}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+              className={fieldClassName}
               placeholder="Ej: 1012345678"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-slate-900 text-white rounded-md py-2.5 text-sm font-medium hover:bg-slate-800"
+            className={primaryButtonClassName}
           >
             Continuar
           </button>
@@ -719,12 +774,13 @@ export default function PublicAttendanceFlow({
 
   return (
     <div className="w-full max-w-lg mx-auto mt-8 p-6 bg-white rounded-xl shadow-lg">
-      <div className="flex items-center gap-2 mb-4 text-blue-600">
+      <BrandLogo variant="horizontal" className="mb-5 h-12 w-auto object-contain" />
+      <div className="mb-4 flex items-center gap-2 text-blue-600">
         <UserPlus className="h-5 w-5" />
-        <h2 className="text-lg font-semibold">Persona nueva</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Persona nueva</h2>
       </div>
 
-      <p className="text-sm text-slate-500 mb-4">
+      <p className="mb-4 text-sm text-slate-500">
         No encontramos el documento <strong>{documento}</strong>. Completá el registro.
       </p>
 
@@ -741,7 +797,7 @@ export default function PublicAttendanceFlow({
               }))
             }
             maxLength={120}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+            className={fieldClassName}
           />
           <input
             required
@@ -754,7 +810,7 @@ export default function PublicAttendanceFlow({
               }))
             }
             maxLength={120}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+            className={fieldClassName}
           />
         </div>
 
@@ -770,7 +826,7 @@ export default function PublicAttendanceFlow({
               }))
             }
             maxLength={15}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+            className={fieldClassName}
           />
           <select
             value={personaForm.tipoDocumento}
@@ -780,7 +836,7 @@ export default function PublicAttendanceFlow({
                 tipoDocumento: e.target.value as TipoDocumento,
               }))
             }
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+            className={fieldClassName}
           >
             <option value="C.C">C.C</option>
             <option value="T.I.">T.I.</option>
@@ -804,7 +860,7 @@ export default function PublicAttendanceFlow({
               }));
             }}
             disabled={isLoadingDepartments}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black disabled:bg-slate-100"
+            className={fieldClassName}
           >
             <option value="">
               {isLoadingDepartments ? 'Cargando departamentos...' : 'Departamento'}
@@ -825,7 +881,7 @@ export default function PublicAttendanceFlow({
               }))
             }
             disabled={!personaForm.departamento || isLoadingCities}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black disabled:bg-slate-100"
+            className={fieldClassName}
           >
             <option value="">
               {!personaForm.departamento
@@ -851,7 +907,7 @@ export default function PublicAttendanceFlow({
                 idRed: e.target.value,
               }))
             }
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+            className={fieldClassName}
           >
             <option value="">Red (opcional)</option>
             {redes.map((red) => (
@@ -870,7 +926,7 @@ export default function PublicAttendanceFlow({
               }))
             }
             maxLength={120}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+            className={fieldClassName}
           />
         </div>
 
@@ -885,7 +941,7 @@ export default function PublicAttendanceFlow({
               }))
             }
             maxLength={120}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+            className={fieldClassName}
           />
           <input
             placeholder="Dirección"
@@ -897,7 +953,7 @@ export default function PublicAttendanceFlow({
               }))
             }
             maxLength={255}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+            className={fieldClassName}
           />
         </div>
 
@@ -914,7 +970,18 @@ export default function PublicAttendanceFlow({
             }
             min={0}
             max={120}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm text-black"
+            className={fieldClassName}
+          />
+          <input
+            type="date"
+            value={personaForm.fechaNacimiento}
+            onChange={(e) =>
+              setPersonaForm((prev) => ({
+                ...prev,
+                fechaNacimiento: e.target.value,
+              }))
+            }
+            className={fieldClassName}
           />
         </div>
 
@@ -922,7 +989,7 @@ export default function PublicAttendanceFlow({
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white rounded-md py-2.5 text-sm font-medium hover:bg-blue-700"
+          className={primaryButtonClassName}
         >
           Registrar asistencia
         </button>

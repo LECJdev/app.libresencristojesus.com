@@ -19,6 +19,7 @@ export interface RegistrationPersonaForm {
   direccion: string;
   correo: string;
   edad: string;
+  fechaNacimiento: string;
   departamento: string;
   ciudad: string;
   barrio: string;
@@ -33,6 +34,7 @@ export const EMPTY_REGISTRATION_PERSONA_FORM: RegistrationPersonaForm = {
   direccion: '',
   correo: '',
   edad: '',
+  fechaNacimiento: '',
   departamento: '',
   ciudad: '',
   barrio: '',
@@ -49,6 +51,7 @@ export function buildRegistrationPersonaPayload(
   direccion?: string;
   correo?: string;
   edad?: number;
+  fechaNacimiento?: string;
   departamento: string;
   ciudad: string;
   barrio?: string;
@@ -64,6 +67,7 @@ export function buildRegistrationPersonaPayload(
     direccion: sanitizeDireccionInput(form.direccion) || undefined,
     correo: sanitizeCorreoInput(form.correo) || undefined,
     edad: edadSanitizada ? Number.parseInt(edadSanitizada, 10) : undefined,
+    fechaNacimiento: form.fechaNacimiento || undefined,
     departamento: sanitizeLocationInput(form.departamento),
     ciudad: sanitizeLocationInput(form.ciudad),
     barrio: sanitizeBarrioInput(form.barrio) || undefined,

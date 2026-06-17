@@ -461,7 +461,7 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
       {/* Modal - Ver Perfil */}
       {viewingPersona && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-lg border border-slate-200 shadow-lg w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between border-b p-4">
               <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Eye className="h-5 w-5 text-blue-500" /> Perfil de Asistente</h2>
               <button onClick={() => setViewingPersona(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
@@ -487,7 +487,7 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
       {/* Modal - Editar Asistencia */}
       {editingAsistencia && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-          <form onSubmit={handleUpdate} className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <form onSubmit={handleUpdate} className="bg-white rounded-lg border border-slate-200 shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-4 border-b">
               <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Pencil className="h-5 w-5 text-orange-500" /> Editar Registro de Asistencia</h2>
               <button type="button" onClick={() => setEditingAsistencia(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>

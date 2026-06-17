@@ -49,6 +49,7 @@ export default function EventosPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Libres en Cristo Jesús</p>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Registros de Eventos</h1>
           <p className="text-slate-500">Gestiona los eventos, sus formularios QR y visualiza los asistentes.</p>
         </div>

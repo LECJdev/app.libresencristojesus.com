@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AsistenciasCasaPazService } from './asistencias-casa-paz.service';
 import type {
+  CompletePublicProfileCasaPazDto,
   CreateAsistenciaCasaPazDto,
   ListAsistenciasCasaPazQuery,
   ListRegistrosCasaPazQuery,
@@ -51,6 +52,14 @@ export class AsistenciasCasaPazController {
     @Body() payload: RegistrarAsistenciaPublicaCasaPazDto,
   ): Promise<unknown> {
     return this.asistenciasCasaPazService.registrarPublico(token, payload);
+  }
+
+  @Put('public/:token/completar-perfil')
+  completePublicProfile(
+    @Param('token') token: string,
+    @Body() payload: CompletePublicProfileCasaPazDto,
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.completePublicProfile(token, payload);
   }
 
   @Get(':id')

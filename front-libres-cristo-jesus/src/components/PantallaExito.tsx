@@ -2,6 +2,7 @@
 
 import { CheckCircle2 } from 'lucide-react';
 import { UserData } from '@/hooks/useUserStorage';
+import BrandLogo from '@/components/BrandLogo';
 
 interface Props {
   user: UserData;
@@ -11,6 +12,7 @@ interface Props {
 export default function PantallaExito({ user, eventoTipo }: Props) {
   return (
     <div className="w-full max-w-md mx-auto p-8 bg-white rounded-xl shadow-lg text-center">
+      <BrandLogo variant="horizontal" className="mx-auto mb-6 h-16 w-auto object-contain" />
       <div className="flex justify-center mb-6">
         <CheckCircle2 className="h-20 w-20 text-green-500 animate-bounce" />
       </div>

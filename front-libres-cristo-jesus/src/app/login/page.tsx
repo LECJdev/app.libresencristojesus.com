@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, UserIcon, LockIcon } from 'lucide-react';
+import { UserIcon, LockIcon } from 'lucide-react';
+import BrandLogo from '@/components/BrandLogo';
 
 export default function LoginPage() {
   const { loginAdmin } = useAuth();
@@ -32,20 +33,20 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <div className="p-4 bg-blue-600/20 rounded-2xl border border-blue-500/30">
-            <ShieldCheck className="h-12 w-12 text-blue-400" />
+          <div className="rounded-2xl border border-blue-500/30 bg-blue-600/20 p-4">
+            <BrandLogo variant="horizontal" className="h-16 w-auto object-contain" priority />
           </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
+        <h1 className="mt-6 text-center text-3xl font-extrabold text-white">
           Acceso al Sistema
-        </h2>
+        </h1>
         <p className="mt-2 text-center text-sm text-slate-400">
-          Libres Cristo Jesús — Panel Administrativo
+          Libres en Cristo Jesús — Panel Administrativo
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-slate-800/60 backdrop-blur-sm py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-slate-700/50">
+        <div className="border border-slate-700/50 bg-slate-800/60 px-4 py-8 shadow-xl backdrop-blur-sm sm:rounded-2xl sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="identifier" className="block text-sm font-medium text-slate-300">
@@ -91,16 +92,16 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="text-red-400 text-sm bg-red-900/30 p-3 rounded-lg border border-red-800/50">
-                {error}
-              </div>
-            )}
+                <div className="rounded-lg border border-red-800/50 bg-red-900/30 p-3 text-sm text-red-400">
+                  {error}
+                </div>
+              )}
 
             <div>
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${loading ? 'cursor-not-allowed opacity-70' : ''}`}
               >
                 {loading ? 'Verificando...' : 'Ingresar al Sistema'}
               </button>

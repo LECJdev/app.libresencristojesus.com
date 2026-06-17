@@ -28,6 +28,8 @@ import {
   sanitizeTokenOrThrow,
 } from '../../common/utils/input-security.util';
 import {
+  getBogotaDateString,
+  getBogotaDayOfWeek,
   normalizeAttendanceDateOrThrow,
   normalizeOptionalAttendanceDateOrThrow,
 } from '../../common/utils/attendance-date.util';
@@ -104,6 +106,13 @@ export interface PersonaRegistroPublicoDto {
 export interface RegistrarAsistenciaPublicaDicipuladoDto {
   documento: string;
   persona?: PersonaRegistroPublicoDto;
+}
+
+export interface CompletePublicProfileDicipuladoDto {
+  personaId: string;
+  documento: string;
+  idRed?: string;
+  fechaNacimiento?: string;
 }
 
 @Injectable()
@@ -408,6 +417,10 @@ export class AsistenciasDicipuladosService {
     alreadyRegistered: boolean;
     esNuevo: boolean;
     needsProfileCompletion: boolean;
+    profileCompletion: {
+      needsRed: boolean;
+      needsFechaNacimiento: boolean;
+    };
     persona: Persona;
     registroId: string;
     fechaRegistro: string;
@@ -457,10 +470,13 @@ export class AsistenciasDicipuladosService {
     });
 
     if (existente) {
+      const profileCompletion = this.buildProfileCompletion(persona, existente.esNuevo);
       return {
         alreadyRegistered: true,
         esNuevo: existente.esNuevo,
-        needsProfileCompletion: !existente.esNuevo && !persona.idRed,
+        needsProfileCompletion:
+          profileCompletion.needsRed || profileCompletion.needsFechaNacimiento,
+        profileCompletion,
         persona,
         registroId: existente.id,
         fechaRegistro,
@@ -476,10 +492,13 @@ export class AsistenciasDicipuladosService {
 
     try {
       const saved = await this.registroDicipuladoRepo.save(registro);
+      const profileCompletion = this.buildProfileCompletion(persona, esNuevo);
       return {
         alreadyRegistered: false,
         esNuevo,
-        needsProfileCompletion: !esNuevo && !persona.idRed,
+        needsProfileCompletion:
+          profileCompletion.needsRed || profileCompletion.needsFechaNacimiento,
+        profileCompletion,
         persona,
         registroId: saved.id,
         fechaRegistro,
@@ -493,10 +512,16 @@ export class AsistenciasDicipuladosService {
         });
 
         if (duplicated) {
+          const profileCompletion = this.buildProfileCompletion(
+            persona,
+            duplicated.esNuevo,
+          );
           return {
             alreadyRegistered: true,
             esNuevo: duplicated.esNuevo,
-            needsProfileCompletion: !duplicated.esNuevo && !persona.idRed,
+            needsProfileCompletion:
+              profileCompletion.needsRed || profileCompletion.needsFechaNacimiento,
+            profileCompletion,
             persona,
             registroId: duplicated.id,
             fechaRegistro,
@@ -506,6 +531,66 @@ export class AsistenciasDicipuladosService {
 
       throw error;
     }
+  }
+
+  async completePublicProfile(
+    token: string,
+    payload: CompletePublicProfileDicipuladoDto,
+  ): Promise<Persona> {
+    const safeToken = sanitizeTokenOrThrow(token);
+    const asistencia = await this.getPublicByToken(safeToken);
+    const personaId = sanitizeEntityIdOrThrow(payload.personaId, 'ID de persona');
+    const documento = sanitizeDocumentoOrThrow(payload.documento);
+
+    const persona = await this.personaRepo.findOne({
+      where: { id: personaId, documento },
+      relations: ['red', 'red.sede'],
+    });
+
+    if (!persona) {
+      throw new NotFoundException('Persona no encontrada para completar el perfil');
+    }
+
+    const registro = await this.registroDicipuladoRepo.findOneBy({
+      idAsistencia: asistencia.id,
+      idPersona: persona.id,
+      fechaRegistro: this.getCurrentDateString(),
+    });
+
+    if (!registro) {
+      throw new BadRequestException(
+        'Primero debes registrar tu asistencia antes de completar el perfil',
+      );
+    }
+
+    const updateData: Partial<Persona> = {};
+
+    if (!this.hasAssignedRed(persona) && payload.idRed) {
+      const idRed = sanitizeEntityIdOrThrow(payload.idRed, 'ID de red');
+      await this.ensureRedExists(idRed);
+      updateData.idRed = idRed;
+    }
+
+    if (!persona.fechaNacimiento && payload.fechaNacimiento) {
+      updateData.fechaNacimiento = this.normalizeBirthDate(payload.fechaNacimiento);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return persona;
+    }
+
+    await this.personaRepo.update(persona.id, updateData);
+
+    const updated = await this.personaRepo.findOne({
+      where: { id: persona.id },
+      relations: ['red', 'red.sede'],
+    });
+
+    if (!updated) {
+      throw new NotFoundException('Persona no encontrada después de completar el perfil');
+    }
+
+    return updated;
   }
 
   private async resolveLocationAndRed(payload: {
@@ -567,6 +652,42 @@ export class AsistenciasDicipuladosService {
     if (!red) {
       throw new NotFoundException('La red seleccionada no existe');
     }
+  }
+
+  private buildProfileCompletion(
+    persona: Persona,
+    esNuevo: boolean,
+  ): {
+    needsRed: boolean;
+    needsFechaNacimiento: boolean;
+  } {
+    if (esNuevo) {
+      return { needsRed: false, needsFechaNacimiento: false };
+    }
+
+    return {
+      needsRed: !this.hasAssignedRed(persona),
+      needsFechaNacimiento: !persona.fechaNacimiento,
+    };
+  }
+
+  private hasAssignedRed(persona: Persona): boolean {
+    return Boolean(persona.idRed || persona.red?.id);
+  }
+
+  private normalizeBirthDate(value: string): string {
+    const trimmed = value.trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      throw new BadRequestException('La fecha de nacimiento no tiene un formato válido');
+    }
+
+    const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException('La fecha de nacimiento no es válida');
+    }
+
+    return trimmed;
   }
 
   private async crearPersonaDesdeRegistro(
@@ -659,15 +780,11 @@ export class AsistenciasDicipuladosService {
       DiaPredica.SABADO,
     ];
 
-    return map[date.getDay()];
+    return map[getBogotaDayOfWeek(date)];
   }
 
   private getCurrentDateString(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return getBogotaDateString();
   }
 
   private isUniqueViolation(error: unknown): boolean {

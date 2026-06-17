@@ -58,6 +58,7 @@ export default function SedesPage() {
         <div className="flex items-start gap-3 sm:items-center">
           <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Building2 className="h-6 w-6" /></div>
           <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Libres en Cristo Jesús</p>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Sedes</h1>
             <p className="text-slate-500 text-sm">Gestiona las sedes de la iglesia.</p>
           </div>

@@ -77,6 +77,7 @@ export default function RedesPage() {
         <div className="flex items-start gap-3 sm:items-center">
           <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Network className="h-6 w-6" /></div>
           <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Libres en Cristo Jesús</p>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Redes</h1>
             <p className="text-slate-500 text-sm">Gestiona las redes de la iglesia.</p>
           </div>

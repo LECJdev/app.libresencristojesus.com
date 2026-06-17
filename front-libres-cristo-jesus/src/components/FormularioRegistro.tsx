@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { UserData } from '@/hooks/useUserStorage';
+import BrandLogo from '@/components/BrandLogo';
 import {
   ColombiaCity,
   ColombiaDepartment,
@@ -43,6 +44,10 @@ function formatRedLabel(red: RedOption): string {
 }
 
 export default function FormularioRegistro({ initialDocumento, onRegistered }: Props) {
+  const inputClassName =
+    'w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none';
+  const selectClassName = `${inputClassName} disabled:bg-gray-100`;
+
   const [formData, setFormData] = useState({
     ...EMPTY_REGISTRATION_PERSONA_FORM,
     celular: initialDocumento,
@@ -211,6 +216,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
   return (
     <div className="w-full max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg">
       <div className="text-center mb-6">
+        <BrandLogo variant="horizontal" className="mx-auto mb-4 h-14 w-auto object-contain" />
         <h2 className="text-2xl font-bold text-gray-800">Registro Nuevo</h2>
         <p className="text-gray-500 mt-2">Parece que eres nuevo. Por favor completa tus datos.</p>
       </div>
@@ -218,7 +224,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombres *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nombres *</label>
             <input
               type="text"
               name="nombres"
@@ -226,11 +232,11 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
               value={formData.nombres}
               onChange={handleChange}
               maxLength={120}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+               className={inputClassName}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Apellidos *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Apellidos *</label>
             <input
               type="text"
               name="apellidos"
@@ -238,19 +244,19 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
               value={formData.apellidos}
               onChange={handleChange}
               maxLength={120}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+               className={inputClassName}
             />
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
           <div className="col-span-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+             <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
             <select
               name="tipoDocumento"
               value={formData.tipoDocumento}
               onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+               className={selectClassName}
             >
               <option value="C.C">C.C</option>
               <option value="T.I.">T.I.</option>
@@ -259,7 +265,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
             </select>
           </div>
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Doc / Celular *</label>
+             <label className="block text-sm font-medium text-gray-700 mb-1">Doc / Celular *</label>
             <input
               type="text"
               name="celular"
@@ -267,21 +273,21 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
               value={formData.celular}
               onChange={handleChange}
               maxLength={15}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+               className={inputClassName}
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Departamento *</label>
+             <label className="block text-sm font-medium text-gray-700 mb-1">Departamento *</label>
             <select
               name="departamento"
               required
               value={formData.departamento}
               onChange={handleChange}
               disabled={isLoadingDepartments}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100"
+               className={selectClassName}
             >
               <option value="">
                 {isLoadingDepartments ? 'Cargando departamentos...' : 'Selecciona un departamento'}
@@ -295,14 +301,14 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad / Municipio *</label>
+             <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad / Municipio *</label>
             <select
               name="ciudad"
               required
               value={formData.ciudad}
               onChange={handleChange}
               disabled={!formData.departamento || isLoadingCities}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100"
+               className={selectClassName}
             >
               <option value="">
                 {!formData.departamento
@@ -327,7 +333,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
                 name="idRed"
                 value={formData.idRed}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                className={selectClassName}
               >
                 <option value="">Selecciona una red (opcional)</option>
                 {redes.map((red) => (
@@ -346,7 +352,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
               value={formData.barrio}
               onChange={handleChange}
               maxLength={120}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+              className={inputClassName}
             />
           </div>
 
@@ -358,7 +364,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
               value={formData.direccion}
               onChange={handleChange}
               maxLength={255}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+              className={inputClassName}
             />
           </div>
         </div>
@@ -371,7 +377,7 @@ export default function FormularioRegistro({ initialDocumento, onRegistered }: P
             value={formData.correo}
             onChange={handleChange}
             maxLength={120}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+            className={inputClassName}
           />
         </div>
 

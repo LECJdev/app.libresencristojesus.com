@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  getBogotaDateString,
+  getBogotaDayOfWeek,
   normalizeAttendanceDateOrThrow,
   normalizeOptionalAttendanceDateOrThrow,
 } from './attendance-date.util';
@@ -33,6 +35,20 @@ describe('attendance-date.util', () => {
     expect(normalizeOptionalAttendanceDateOrThrow('')).toBeUndefined();
     expect(normalizeOptionalAttendanceDateOrThrow(undefined)).toBeUndefined();
     expect(normalizeOptionalAttendanceDateOrThrow(null)).toBeUndefined();
+  });
+
+  it('formats the current date in America/Bogota', () => {
+    expect(getBogotaDateString(new Date('2026-06-15T04:30:00.000Z'))).toBe(
+      '2026-06-14',
+    );
+    expect(getBogotaDateString(new Date('2026-06-15T05:30:00.000Z'))).toBe(
+      '2026-06-15',
+    );
+  });
+
+  it('returns the weekday using Bogota local time', () => {
+    expect(getBogotaDayOfWeek(new Date('2026-06-15T04:30:00.000Z'))).toBe(0);
+    expect(getBogotaDayOfWeek(new Date('2026-06-15T05:30:00.000Z'))).toBe(1);
   });
 
   it('throws for unsupported values', () => {

@@ -28,6 +28,8 @@ import {
   sanitizeTokenOrThrow,
 } from '../../common/utils/input-security.util';
 import {
+  getBogotaDateString,
+  getBogotaDayOfWeek,
   normalizeAttendanceDateOrThrow,
   normalizeOptionalAttendanceDateOrThrow,
 } from '../../common/utils/attendance-date.util';
@@ -101,6 +103,23 @@ export interface RegistrarAsistenciaPublicaDto {
   documento: string;
   persona?: PersonaRegistroPublicoDto;
 }
+
+export interface CompletePublicProfileDto {
+  personaId: string;
+  documento: string;
+  idRed?: string;
+  fechaNacimiento?: string;
+  celular?: string;
+  departamento?: string;
+  ciudad?: string;
+}
+
+export type MissingProfileField =
+  | 'idRed'
+  | 'fechaNacimiento'
+  | 'celular'
+  | 'departamento'
+  | 'ciudad';
 
 @Injectable()
 export class AsistenciasDominicalesService {
@@ -388,23 +407,16 @@ export class AsistenciasDominicalesService {
     alreadyRegistered: boolean;
     esNuevo: boolean;
     needsProfileCompletion: boolean;
+    profileCompletion: {
+      needsRed: boolean;
+      needsFechaNacimiento: boolean;
+    };
     persona: Persona;
     registroId: string;
     fechaRegistro: string;
+    missingFields: MissingProfileField[];
   }> {
-    const safeToken = sanitizeTokenOrThrow(token);
-    const asistencia = await this.getPublicByToken(safeToken);
-
-    if (asistencia.estado !== EstadoAsistenciaDominical.ACTIVO) {
-      throw new BadRequestException('Esta asistencia se encuentra inactiva');
-    }
-
-    const diaActual = this.getDiaPredicaFromDate(new Date());
-    if (diaActual !== asistencia.diaRegistro) {
-      throw new BadRequestException(
-        `Esta asistencia solo permite registros el día ${asistencia.diaRegistro}`,
-      );
-    }
+    const asistencia = await this.validatePublicAttendanceAvailability(token);
 
     const documento = sanitizeDocumentoOrThrow(payload.documento);
 
@@ -437,13 +449,18 @@ export class AsistenciasDominicalesService {
     });
 
     if (existente) {
+      const missingFields = this.getMissingProfileFields(persona);
+      const profileCompletion = this.buildProfileCompletion(persona, existente.esNuevo);
       return {
         alreadyRegistered: true,
         esNuevo: existente.esNuevo,
-        needsProfileCompletion: !existente.esNuevo && !persona.idRed,
+        needsProfileCompletion:
+          profileCompletion.needsRed || profileCompletion.needsFechaNacimiento,
+        profileCompletion,
         persona,
         registroId: existente.id,
         fechaRegistro,
+        missingFields,
       };
     }
 
@@ -456,13 +473,18 @@ export class AsistenciasDominicalesService {
 
     try {
       const saved = await this.registroDominicalRepo.save(registro);
+      const missingFields = this.getMissingProfileFields(persona);
+      const profileCompletion = this.buildProfileCompletion(persona, esNuevo);
       return {
         alreadyRegistered: false,
         esNuevo,
-        needsProfileCompletion: !esNuevo && !persona.idRed,
+        needsProfileCompletion:
+          profileCompletion.needsRed || profileCompletion.needsFechaNacimiento,
+        profileCompletion,
         persona,
         registroId: saved.id,
         fechaRegistro,
+        missingFields,
       };
     } catch (error: unknown) {
       if (this.isUniqueViolation(error)) {
@@ -473,19 +495,102 @@ export class AsistenciasDominicalesService {
         });
 
         if (duplicated) {
+          const missingFields = this.getMissingProfileFields(persona);
+          const profileCompletion = this.buildProfileCompletion(
+            persona,
+            duplicated.esNuevo,
+          );
           return {
             alreadyRegistered: true,
             esNuevo: duplicated.esNuevo,
-            needsProfileCompletion: !duplicated.esNuevo && !persona.idRed,
+            needsProfileCompletion:
+              profileCompletion.needsRed || profileCompletion.needsFechaNacimiento,
+            profileCompletion,
             persona,
             registroId: duplicated.id,
             fechaRegistro,
+            missingFields,
           };
         }
       }
 
       throw error;
     }
+  }
+
+  async completePublicProfile(
+    token: string,
+    payload: CompletePublicProfileDto,
+  ): Promise<Persona> {
+    const asistencia = await this.getPublicByToken(sanitizeTokenOrThrow(token));
+    const personaId = sanitizeEntityIdOrThrow(payload.personaId, 'ID de persona');
+    const documento = sanitizeDocumentoOrThrow(payload.documento);
+
+    const persona = await this.personaRepo.findOne({
+      where: { id: personaId, documento },
+      relations: ['red', 'red.sede'],
+    });
+
+    if (!persona) {
+      throw new NotFoundException('Persona no encontrada para completar el perfil');
+    }
+
+    const registro = await this.registroDominicalRepo.findOneBy({
+      idAsistencia: asistencia.id,
+      idPersona: persona.id,
+      fechaRegistro: this.getCurrentDateString(),
+    });
+
+    if (!registro) {
+      throw new BadRequestException(
+        'Primero debes registrar tu asistencia antes de completar el perfil',
+      );
+    }
+
+    const updateData: Partial<Persona> = {};
+
+    if (!this.hasAssignedRed(persona) && payload.idRed) {
+      const idRed = sanitizeEntityIdOrThrow(payload.idRed, 'ID de red');
+      await this.ensureRedExists(idRed);
+      updateData.idRed = idRed;
+    }
+
+    if (!persona.fechaNacimiento && payload.fechaNacimiento) {
+      updateData.fechaNacimiento = this.normalizeBirthDate(payload.fechaNacimiento);
+    }
+
+    if (!persona.celular && payload.celular) {
+      updateData.celular = sanitizeCelularOrThrow(payload.celular);
+    }
+
+    if (!persona.departamento && payload.departamento) {
+      updateData.departamento = sanitizeRequiredTextOrThrow(
+        payload.departamento,
+        'Departamento',
+        150,
+      );
+    }
+
+    if (!persona.ciudad && payload.ciudad) {
+      updateData.ciudad = sanitizeRequiredTextOrThrow(payload.ciudad, 'Ciudad', 150);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return persona;
+    }
+
+    await this.personaRepo.update(persona.id, updateData);
+
+    const updated = await this.personaRepo.findOne({
+      where: { id: persona.id },
+      relations: ['red', 'red.sede'],
+    });
+
+    if (!updated) {
+      throw new NotFoundException('Persona no encontrada después de completar el perfil');
+    }
+
+    return updated;
   }
 
   private async ensureSedeExists(idSede: string): Promise<void> {
@@ -500,6 +605,114 @@ export class AsistenciasDominicalesService {
     if (!red) {
       throw new NotFoundException('La red seleccionada no existe');
     }
+  }
+
+  private buildProfileCompletion(
+    persona: Persona,
+    esNuevo: boolean,
+  ): {
+    needsRed: boolean;
+    needsFechaNacimiento: boolean;
+  } {
+    if (esNuevo) {
+      return { needsRed: false, needsFechaNacimiento: false };
+    }
+
+    return {
+      needsRed: !this.hasAssignedRed(persona),
+      needsFechaNacimiento: !persona.fechaNacimiento,
+    };
+  }
+
+  private hasAssignedRed(persona: Persona): boolean {
+    return Boolean(persona.idRed || persona.red?.id);
+  }
+
+  private getMissingProfileFields(persona: Persona): MissingProfileField[] {
+    const missingFields: MissingProfileField[] = [];
+
+    if (!this.hasAssignedRed(persona)) {
+      missingFields.push('idRed');
+    }
+
+    if (!persona.fechaNacimiento) {
+      missingFields.push('fechaNacimiento');
+    }
+
+    if (!persona.celular) {
+      missingFields.push('celular');
+    }
+
+    if (!persona.departamento) {
+      missingFields.push('departamento');
+    }
+
+    if (!persona.ciudad) {
+      missingFields.push('ciudad');
+    }
+
+    return missingFields;
+  }
+
+  private async validatePublicAttendanceAvailability(
+    token: string,
+  ): Promise<AsistenciaDominical> {
+    const safeToken = sanitizeTokenOrThrow(token);
+    const asistencia = await this.getPublicByToken(safeToken);
+
+    if (asistencia.estado !== EstadoAsistenciaDominical.ACTIVO) {
+      throw new BadRequestException('Esta asistencia se encuentra inactiva');
+    }
+
+    const diaActual = this.getDiaPredicaFromDate(new Date());
+    if (diaActual !== asistencia.diaRegistro) {
+      throw new BadRequestException(
+        `Esta asistencia solo permite registros el día ${asistencia.diaRegistro}`,
+      );
+    }
+
+    return asistencia;
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      const response = error.getResponse();
+      if (typeof response === 'string') {
+        return response;
+      }
+
+      if (
+        typeof response === 'object' &&
+        response !== null &&
+        'message' in response
+      ) {
+        const message = (response as { message?: string | string[] }).message;
+        if (Array.isArray(message)) {
+          return message.join(', ');
+        }
+
+        if (typeof message === 'string' && message.trim()) {
+          return message;
+        }
+      }
+    }
+
+    return 'No fue posible registrar esta persona';
+  }
+
+  private normalizeBirthDate(value: string): string {
+    const trimmed = value.trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      throw new BadRequestException('La fecha de nacimiento no tiene un formato válido');
+    }
+
+    const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException('La fecha de nacimiento no es válida');
+    }
+
+    return trimmed;
   }
 
   private async crearPersonaDesdeRegistro(
@@ -592,15 +805,11 @@ export class AsistenciasDominicalesService {
       DiaPredica.SABADO,
     ];
 
-    return map[date.getDay()];
+    return map[getBogotaDayOfWeek(date)];
   }
 
   private getCurrentDateString(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return getBogotaDateString();
   }
 
   private isUniqueViolation(error: unknown): boolean {

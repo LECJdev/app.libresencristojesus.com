@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AsistenciasDominicalesService } from './asistencias-dominicales.service';
 import type {
+  CompletePublicProfileDto,
   CreateAsistenciaDominicalDto,
   ListAsistenciasDominicalesQuery,
   ListRegistrosDominicalesQuery,
@@ -51,6 +52,14 @@ export class AsistenciasDominicalesController {
     @Body() payload: RegistrarAsistenciaPublicaDto,
   ): Promise<unknown> {
     return this.asistenciasDominicalesService.registrarPublico(token, payload);
+  }
+
+  @Put('public/:token/completar-perfil')
+  completePublicProfile(
+    @Param('token') token: string,
+    @Body() payload: CompletePublicProfileDto,
+  ): Promise<unknown> {
+    return this.asistenciasDominicalesService.completePublicProfile(token, payload);
   }
 
   @Get(':id')

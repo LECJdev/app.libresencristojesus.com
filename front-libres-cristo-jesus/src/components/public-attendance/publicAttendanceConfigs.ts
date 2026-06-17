@@ -21,6 +21,7 @@ export interface PublicAttendanceSummaryFieldConfig {
 export interface PublicAttendanceFlowConfig {
   attendanceEndpoint: string;
   registerEndpoint: string;
+  followUpEndpoint: string;
   askDescriptionLines: PublicAttendanceDescriptionLine[];
   summaryFields: PublicAttendanceSummaryFieldConfig[];
 }
@@ -29,6 +30,7 @@ export const publicAttendanceConfigs = {
   dominical: {
     attendanceEndpoint: '/asistencias-dominicales/public/[token]',
     registerEndpoint: '/asistencias-dominicales/public/[token]/registrar',
+    followUpEndpoint: '/asistencias-dominicales/public/[token]/completar-perfil',
     askDescriptionLines: [
       {
         parts: [
@@ -50,6 +52,7 @@ export const publicAttendanceConfigs = {
   'casa-paz': {
     attendanceEndpoint: '/asistencias-casa-paz/public/[token]',
     registerEndpoint: '/asistencias-casa-paz/public/[token]/registrar',
+    followUpEndpoint: '/asistencias-casa-paz/public/[token]/completar-perfil',
     askDescriptionLines: [
       {
         parts: [{ type: 'field', value: 'nombre', fallback: '—' }],
@@ -76,6 +79,7 @@ export const publicAttendanceConfigs = {
   dicipulado: {
     attendanceEndpoint: '/asistencias-dicipulados/public/[token]',
     registerEndpoint: '/asistencias-dicipulados/public/[token]/registrar',
+    followUpEndpoint: '/asistencias-dicipulados/public/[token]/completar-perfil',
     askDescriptionLines: [
       {
         parts: [{ type: 'field', value: 'nombre', fallback: '—' }],

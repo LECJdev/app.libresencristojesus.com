@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { UserData } from '@/hooks/useUserStorage';
+import BrandLogo from '@/components/BrandLogo';
 
 interface Props {
   onFound: (user: UserData) => void;
@@ -45,26 +46,27 @@ export default function VerificacionRapida({ onFound, onNotFound }: Props) {
   return (
     <div className="w-full max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg">
       <div className="text-center mb-6">
+        <BrandLogo variant="horizontal" className="mx-auto mb-4 h-14 w-auto object-contain" />
         <h2 className="text-2xl font-bold text-gray-800">Verificación Rápida</h2>
         <p className="text-gray-500 mt-2">Ingresa tu número de documento o celular para buscarte en el sistema.</p>
       </div>
 
       <form onSubmit={handleSearch} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Número de Documento / Celular
-          </label>
-          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Número de Documento / Celular
+            </label>
+            <div className="relative">
             <input
               type="text"
               value={documento}
               onChange={(e) => setDocumento(e.target.value.replace(/\D/g, ''))}
               placeholder="Ej: 123456789"
-              className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              required
-            />
-            <Search className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-          </div>
+                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                required
+              />
+              <Search className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+            </div>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </div>
 

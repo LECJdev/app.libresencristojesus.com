@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AsistenciasDicipuladosService } from './asistencias-dicipulados.service';
 import type {
+  CompletePublicProfileDicipuladoDto,
   CreateAsistenciaDicipuladoDto,
   ListAsistenciasDicipuladosQuery,
   ListRegistrosDicipuladosQuery,
@@ -51,6 +52,14 @@ export class AsistenciasDicipuladosController {
     @Body() payload: RegistrarAsistenciaPublicaDicipuladoDto,
   ): Promise<unknown> {
     return this.asistenciasDicipuladosService.registrarPublico(token, payload);
+  }
+
+  @Put('public/:token/completar-perfil')
+  completePublicProfile(
+    @Param('token') token: string,
+    @Body() payload: CompletePublicProfileDicipuladoDto,
+  ): Promise<unknown> {
+    return this.asistenciasDicipuladosService.completePublicProfile(token, payload);
   }
 
   @Get(':id')

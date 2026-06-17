@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { LogOut, LayoutDashboard, Users, BarChart3, QrCode, ShieldCheck, CalendarCheck, Network, Building2, MapPin, FolderTree, ChevronDown, ChevronRight, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { ROLE_LABELS } from '@/lib/roles';
+import BrandLogo from '@/components/BrandLogo';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, isSuperAdmin, logout } = useAuth();
@@ -38,9 +39,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading || !isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
     );
   }
 
@@ -93,8 +94,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[88vw] flex-col bg-slate-900 text-white transition-transform duration-200 md:static md:z-auto md:w-64 md:max-w-none md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex min-h-16 items-center gap-3 border-b border-slate-800 bg-slate-950 px-5 py-3 font-bold text-lg tracking-wider md:px-6">
-          <span>LEJ ADMIN</span>
+        <div className="flex min-h-16 items-center gap-3 border-b border-slate-800 bg-slate-950 px-5 py-3 md:px-6">
+          <div className="min-w-0 flex flex-col">
+            <BrandLogo variant="horizontal" className="h-10 w-auto max-w-[180px] object-contain" priority />
+          </div>
           <button
             type="button"
             aria-label="Cerrar menú lateral"
@@ -108,14 +111,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {routes.map((route) => {
             const Icon = route.icon;
             const isActive =
-              pathname === route.path || pathname.startsWith(`${route.path}/`);
+              route.path === '/admin'
+                ? pathname === route.path
+                : pathname === route.path || pathname.startsWith(`${route.path}/`);
             return (
               <Link
                 key={route.path}
                 href={route.path}
                 className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-                }`}
+                   isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                 }`}
               >
                 <Icon className="h-5 w-5" />
                 {route.name}
@@ -147,8 +152,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     key={route.path}
                     href={route.path}
                     className={`ml-3 flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-                    }`}
+                       isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                     }`}
                   >
                     <Icon className="h-4 w-4" />
                     {route.name}
@@ -172,8 +177,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     key={route.path}
                     href={route.path}
                     className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      isActive ? 'bg-purple-600 text-white' : 'text-purple-300 hover:bg-slate-800'
-                    }`}
+                       isActive ? 'bg-purple-600 text-white' : 'text-purple-300 hover:bg-slate-800'
+                     }`}
                   >
                     <Icon className="h-5 w-5" />
                     {route.name}
@@ -190,7 +195,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {user?.nombres?.charAt(0) || 'A'}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.nombres}</p>
+                <p className="truncate text-sm font-medium text-white">{user?.nombres}</p>
               <p className="text-xs text-slate-400">
                 {user?.rol ? ROLE_LABELS[user.rol] : 'Administrador'}
               </p>

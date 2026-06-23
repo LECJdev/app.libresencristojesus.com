@@ -98,9 +98,11 @@ export interface CasaPazSesionUpsertDto {
 }
 
 export interface PersonaRegistroPublicoDto {
-  nombres: string;
-  apellidos: string;
+  nombreCompleto?: string;
+  nombres?: string;
+  apellidos?: string;
   celular: string;
+  encuentro?: boolean | null;
   idRed?: string;
   tipoDocumento?: TipoDocumento;
   direccion?: string;
@@ -825,18 +827,14 @@ export class AsistenciasCasaPazService {
     documento: string,
     data: PersonaRegistroPublicoDto,
   ): Promise<Persona> {
-    if (
-      !data.nombres?.trim() ||
-      !data.apellidos?.trim() ||
-      !data.celular?.trim()
-    ) {
+    const { nombres, apellidos } = this.resolvePublicRegistrationName(data);
+
+    if (!nombres || !data.celular?.trim()) {
       throw new BadRequestException(
-        'Para registrar una persona nueva debes completar nombres, apellidos y celular',
+        'Para registrar una persona nueva debes completar nombre y celular',
       );
     }
 
-    const nombres = sanitizeNombreOrThrow(data.nombres, 'Nombres');
-    const apellidos = sanitizeNombreOrThrow(data.apellidos, 'Apellidos');
     const celular = sanitizeCelularOrThrow(data.celular);
     const idRed = data.idRed
       ? sanitizeEntityIdOrThrow(data.idRed, 'ID de red')
@@ -860,6 +858,7 @@ export class AsistenciasCasaPazService {
       barrio: sanitizeOptionalText(data.barrio, 120),
       genero: data.genero ?? null,
       fechaNacimiento: data.fechaNacimiento || null,
+      encuentro: typeof data.encuentro === 'boolean' ? data.encuentro : null,
       idRed,
       rol: Rol.INTEGRANTE,
     });
@@ -875,6 +874,36 @@ export class AsistenciasCasaPazService {
     }
 
     return persona;
+  }
+
+  private resolvePublicRegistrationName(
+    data: PersonaRegistroPublicoDto,
+  ): { nombres: string; apellidos: string | null } {
+    const explicitNombres = data.nombres?.trim();
+    const explicitApellidos = data.apellidos?.trim();
+
+    if (explicitNombres) {
+      return {
+        nombres: sanitizeNombreOrThrow(explicitNombres, 'Nombres'),
+        apellidos: explicitApellidos
+          ? sanitizeNombreOrThrow(explicitApellidos, 'Apellidos')
+          : null,
+      };
+    }
+
+    const nombreCompleto = data.nombreCompleto?.trim();
+    if (!nombreCompleto) {
+      return { nombres: '', apellidos: null };
+    }
+
+    const parts = nombreCompleto.split(/\s+/).filter(Boolean);
+    const nombres = parts[0] || '';
+    const apellidos = parts.slice(1).join(' ');
+
+    return {
+      nombres: sanitizeNombreOrThrow(nombres, 'Nombre'),
+      apellidos: apellidos ? sanitizeNombreOrThrow(apellidos, 'Apellidos') : null,
+    };
   }
 
   private getPagination(

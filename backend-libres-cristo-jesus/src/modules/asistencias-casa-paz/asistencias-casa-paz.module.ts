@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AsistenciaCasaPazQr } from './asistencia-casa-paz-qr.entity';
+import { CasaPazSesion } from './casa-paz-sesion.entity';
 import { RegistroAsistenciaCasaPazQr } from './registro-asistencia-casa-paz-qr.entity';
 import { AsistenciasCasaPazController } from './asistencias-casa-paz.controller';
 import { AsistenciasCasaPazService } from './asistencias-casa-paz.service';
@@ -12,6 +13,7 @@ import { Sede } from '../sedes/sede.entity';
   imports: [
     TypeOrmModule.forFeature([
       AsistenciaCasaPazQr,
+      CasaPazSesion,
       RegistroAsistenciaCasaPazQr,
       Red,
       Persona,

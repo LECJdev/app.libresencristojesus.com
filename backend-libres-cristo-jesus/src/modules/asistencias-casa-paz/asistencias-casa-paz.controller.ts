@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AsistenciasCasaPazService } from './asistencias-casa-paz.service';
 import type {
+  CasaPazSesionUpsertDto,
   CompletePublicProfileCasaPazDto,
   CreateAsistenciaCasaPazDto,
   ListAsistenciasCasaPazQuery,
@@ -20,6 +21,7 @@ import type {
 } from './asistencias-casa-paz.service';
 import { EstadoAsistenciaCasaPaz } from '../../common/enums/estado-asistencia-casa-paz.enum';
 import {
+  AdminReadAccess,
   AdminDeleteAccess,
   AdminWriteAccess,
 } from '../auth/admin-access.decorator';
@@ -30,6 +32,7 @@ export class AsistenciasCasaPazController {
     private readonly asistenciasCasaPazService: AsistenciasCasaPazService,
   ) {}
 
+  @AdminReadAccess()
   @Get()
   findAll(@Query() query: ListAsistenciasCasaPazQuery): Promise<unknown> {
     return this.asistenciasCasaPazService.findAll(query);
@@ -62,6 +65,7 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.completePublicProfile(token, payload);
   }
 
+  @AdminReadAccess()
   @Get(':id')
   findOne(@Param('id') id: string): Promise<unknown> {
     return this.asistenciasCasaPazService.findOne(id);
@@ -91,6 +95,7 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.remove(id);
   }
 
+  @AdminReadAccess()
   @Get(':id/registros')
   findRegistrosByAsistencia(
     @Param('id') id: string,
@@ -99,6 +104,7 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.findRegistrosByAsistencia(id, query);
   }
 
+  @AdminReadAccess()
   @Get(':id/registros/fechas')
   findFechasDisponiblesByAsistencia(
     @Param('id') id: string,
@@ -106,6 +112,7 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.findFechasDisponiblesByAsistencia(id);
   }
 
+  @AdminReadAccess()
   @Get(':id/registros/resumen')
   findResumenByAsistencia(
     @Param('id') id: string,
@@ -114,6 +121,7 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.findResumenByAsistencia(id, fecha);
   }
 
+  @AdminReadAccess()
   @Get(':id/registros/resumen-por-red')
   findResumenPorRedByAsistencia(
     @Param('id') id: string,
@@ -123,5 +131,23 @@ export class AsistenciasCasaPazController {
       id,
       fecha,
     );
+  }
+
+  @AdminReadAccess()
+  @Get(':id/sesion')
+  findSesionByAsistencia(
+    @Param('id') id: string,
+    @Query('fecha') fecha: string,
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findSesionByAsistencia(id, fecha);
+  }
+
+  @AdminWriteAccess()
+  @Put(':id/sesion')
+  upsertSesionByAsistencia(
+    @Param('id') id: string,
+    @Body() payload: CasaPazSesionUpsertDto,
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.upsertSesionByAsistencia(id, payload);
   }
 }

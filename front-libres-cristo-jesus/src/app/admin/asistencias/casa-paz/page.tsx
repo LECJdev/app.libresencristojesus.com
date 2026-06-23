@@ -32,6 +32,12 @@ interface Red {
   nombre: string | null;
 }
 
+interface PersonaOption {
+  id: string;
+  nombres: string | null;
+  apellidos: string | null;
+}
+
 interface AsistenciaCasaPaz {
   id: string;
   nombre: string;
@@ -41,6 +47,12 @@ interface AsistenciaCasaPaz {
   idRed: string;
   direccionCasa: string;
   red: Red;
+  idPersonaACargo: string | null;
+  idAnfitrion: string | null;
+  idLiderPrincipal: string | null;
+  personaACargo: PersonaOption | null;
+  anfitrion: PersonaOption | null;
+  liderPrincipal: PersonaOption | null;
 }
 
 interface PagedResponse<T> {
@@ -69,6 +81,7 @@ export default function AsistenciasCasaPazPage() {
 
   const [items, setItems] = useState<AsistenciaCasaPaz[]>([]);
   const [redes, setRedes] = useState<Red[]>([]);
+  const [personas, setPersonas] = useState<PersonaOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
@@ -86,6 +99,9 @@ export default function AsistenciasCasaPazPage() {
     estado: 'ACTIVO' as EstadoAsistenciaCasaPaz,
     idRed: '',
     direccionCasa: '',
+    idPersonaACargo: '',
+    idAnfitrion: '',
+    idLiderPrincipal: '',
   });
 
   const fetchData = async (
@@ -94,16 +110,18 @@ export default function AsistenciasCasaPazPage() {
   ) => {
     setLoading(true);
     try {
-      const [{ data: asistencias }, { data: redesData }] = await Promise.all([
+      const [{ data: asistencias }, { data: redesData }, { data: personasData }] = await Promise.all([
         apiClient.get<PagedResponse<AsistenciaCasaPaz>>('/asistencias-casa-paz', {
           params: { search: nextSearch, page: nextPage, limit },
         }),
         apiClient.get<Red[]>('/redes'),
+        apiClient.get<PersonaOption[]>('/personas'),
       ]);
 
       setItems(asistencias.data);
       setTotalPages(asistencias.totalPages || 1);
       setRedes(redesData);
+      setPersonas(personasData);
     } catch (error) {
       console.error(error);
       alert('Error cargando asistencias de casa de paz');
@@ -131,6 +149,9 @@ export default function AsistenciasCasaPazPage() {
       estado: 'ACTIVO',
       idRed: redes[0]?.id || '',
       direccionCasa: '',
+      idPersonaACargo: '',
+      idAnfitrion: '',
+      idLiderPrincipal: '',
     });
     setShowForm(true);
   };
@@ -145,6 +166,9 @@ export default function AsistenciasCasaPazPage() {
       estado: item.estado,
       idRed: item.idRed,
       direccionCasa: item.direccionCasa,
+      idPersonaACargo: item.idPersonaACargo || '',
+      idAnfitrion: item.idAnfitrion || '',
+      idLiderPrincipal: item.idLiderPrincipal || '',
     });
     setShowForm(true);
   };
@@ -178,6 +202,9 @@ export default function AsistenciasCasaPazPage() {
       estado: form.estado,
       idRed: form.idRed,
       direccionCasa: form.direccionCasa,
+      idPersonaACargo: form.idPersonaACargo || null,
+      idAnfitrion: form.idAnfitrion || null,
+      idLiderPrincipal: form.idLiderPrincipal || null,
     };
 
     setSubmitting(true);
@@ -232,6 +259,21 @@ export default function AsistenciasCasaPazPage() {
     if (!confirm('¿Ir al detalle de esta asistencia?')) return;
     router.push(`/admin/asistencias/casa-paz/${id}`);
   };
+
+  const formatPersonaName = (persona: PersonaOption | null | undefined) => {
+    if (!persona) return '—';
+    const fullName = `${persona.nombres || ''} ${persona.apellidos || ''}`.trim();
+    if (fullName) return fullName;
+    return persona.id;
+  };
+
+  const renderPersonaOptions = () => (
+    personas.map((persona) => (
+      <option key={persona.id} value={persona.id}>
+        {formatPersonaName(persona)}
+      </option>
+    ))
+  );
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -488,6 +530,56 @@ export default function AsistenciasCasaPazPage() {
                         {estado}
                       </option>
                     ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Persona a cargo
+                  </label>
+                  <select
+                    value={form.idPersonaACargo}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, idPersonaACargo: e.target.value }))
+                    }
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white"
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {renderPersonaOptions()}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Anfitrión
+                  </label>
+                  <select
+                    value={form.idAnfitrion}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, idAnfitrion: e.target.value }))
+                    }
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white"
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {renderPersonaOptions()}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Líder principal
+                  </label>
+                  <select
+                    value={form.idLiderPrincipal}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, idLiderPrincipal: e.target.value }))
+                    }
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white"
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {renderPersonaOptions()}
                   </select>
                 </div>
               </div>

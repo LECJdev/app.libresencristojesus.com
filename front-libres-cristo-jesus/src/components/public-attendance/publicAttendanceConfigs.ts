@@ -71,7 +71,7 @@ export const publicAttendanceConfigs = {
       { label: 'Red', source: 'attendance', path: 'red.nombre', fallback: '—' },
       { label: 'Dirección', source: 'attendance', path: 'direccionCasa', fallback: '—' },
       { label: 'Persona', source: 'displayName', fallback: '—' },
-      { label: 'Documento', source: 'result', path: 'persona.documento', fallback: '—' },
+      { label: 'Documento', source: 'documento', fallback: '—' },
       { label: 'Fecha', source: 'result', path: 'fechaRegistro', fallback: '—' },
       { label: 'Tipo', source: 'computed', computed: 'registrationType', fallback: '—' },
     ],

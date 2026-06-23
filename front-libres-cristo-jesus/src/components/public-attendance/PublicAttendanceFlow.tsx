@@ -42,7 +42,6 @@ type Step =
   | 'ERROR';
 
 interface BaseAttendance {
-  id: string;
   nombre: string;
   diaRegistro: string;
   estado: 'ACTIVO' | 'INACTIVO';
@@ -53,7 +52,6 @@ interface PersonaSummary {
   id: string;
   nombres: string | null;
   apellidos: string | null;
-  documento: string | null;
   fechaNacimiento: string | null;
   red: {
     id: string;
@@ -439,13 +437,13 @@ export default function PublicAttendanceFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attendance, isLoaded]);
 
-  const manejarExito = (response: RegistroResponse) => {
+  const manejarExito = (response: RegistroResponse, submittedDocumento: string) => {
     setLastResult(response);
     setFollowUpRedId(response.persona.red?.id || '');
     setFollowUpBirthDate(response.persona.fechaNacimiento || '');
     setFollowUpError('');
 
-    const documentoFinal = response.persona.documento || documento;
+    const documentoFinal = submittedDocumento || documento;
     saveUserData({
       id: response.persona.id,
       nombres: response.persona.nombres || '',
@@ -463,7 +461,8 @@ export default function PublicAttendanceFlow({
     setLoadingAction(true);
     setErrorMsg('');
 
-    try {
+      try {
+        setDocumento(safeDocumento);
         const { data } = await apiClient.post<RegistroResponse>(
           buildEndpoint(config.registerEndpoint, resolvedParams.token),
           {
@@ -471,7 +470,7 @@ export default function PublicAttendanceFlow({
           },
         );
 
-        manejarExito(data);
+        manejarExito(data, safeDocumento);
     } catch (error: unknown) {
       const status = getErrorStatus(error);
 
@@ -522,7 +521,7 @@ export default function PublicAttendanceFlow({
         },
       );
 
-      manejarExito(data);
+      manejarExito(data, documentoSanitizado);
     } catch (error: unknown) {
       const status = getErrorStatus(error);
       if (shouldLogAsError(status)) {
@@ -561,7 +560,7 @@ export default function PublicAttendanceFlow({
     try {
       await apiClient.put(buildEndpoint(config.followUpEndpoint, resolvedParams.token), {
         personaId: lastResult.persona.id,
-        documento: lastResult.persona.documento || documento,
+        documento,
         idRed: needsRed ? followUpRedId : undefined,
         fechaNacimiento: needsFechaNacimiento ? followUpBirthDate : undefined,
       });

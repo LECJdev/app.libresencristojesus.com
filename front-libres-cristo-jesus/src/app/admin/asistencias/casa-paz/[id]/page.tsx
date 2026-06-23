@@ -30,6 +30,15 @@ interface AsistenciaCasaPaz {
   qrToken: string;
   direccionCasa: string;
   red: { id: string; nombre: string | null };
+  personaACargo: PersonaResumen | null;
+  anfitrion: PersonaResumen | null;
+  liderPrincipal: PersonaResumen | null;
+}
+
+interface PersonaResumen {
+  id: string;
+  nombres: string | null;
+  apellidos: string | null;
 }
 
 interface RegistroAsistencia {
@@ -55,6 +64,12 @@ interface PagedResponse<T> {
 
 type FechasDisponiblesResponse = string[];
 
+interface CasaPazSesion {
+  fecha: string;
+  montoOfrenda: number;
+  exists: boolean;
+}
+
 export default function DetalleAsistenciaCasaPazPage({
   params,
 }: {
@@ -69,6 +84,9 @@ export default function DetalleAsistenciaCasaPazPage({
   const [loadingBase, setLoadingBase] = useState(true);
   const [loadingRegistros, setLoadingRegistros] = useState(false);
   const [fechasDisponibles, setFechasDisponibles] = useState<string[]>([]);
+  const [sesion, setSesion] = useState<CasaPazSesion | null>(null);
+  const [montoOfrenda, setMontoOfrenda] = useState('');
+  const [savingOffering, setSavingOffering] = useState(false);
 
   const [search, setSearch] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
@@ -111,6 +129,8 @@ export default function DetalleAsistenciaCasaPazPage({
       setResumen(null);
       setResumenPorRed([]);
       setTotalPages(1);
+      setSesion(null);
+      setMontoOfrenda('');
       return;
     }
 
@@ -155,6 +175,27 @@ export default function DetalleAsistenciaCasaPazPage({
     }
   };
 
+  const fetchSesion = async () => {
+    if (!hasFechaSeleccionada) {
+      setSesion(null);
+      setMontoOfrenda('');
+      return;
+    }
+
+    try {
+      const { data } = await apiClient.get<CasaPazSesion>(
+        `/asistencias-casa-paz/${resolvedParams.id}/sesion`,
+        { params: { fecha } },
+      );
+
+      setSesion(data);
+      setMontoOfrenda(data.exists || data.montoOfrenda > 0 ? String(data.montoOfrenda) : '');
+    } catch (error) {
+      console.error(error);
+      alert('Error cargando la ofrenda de la fecha seleccionada');
+    }
+  };
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void fetchBaseData();
@@ -181,10 +222,62 @@ export default function DetalleAsistenciaCasaPazPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedParams.id, page, soloNuevos, fecha, submittedSearch, hasFechaSeleccionada]);
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchSesion();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedParams.id, fecha, hasFechaSeleccionada]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
     setSubmittedSearch(search);
+  };
+
+  const handleSaveOffering = async () => {
+    if (!hasFechaSeleccionada) {
+      alert('Seleccioná una fecha para registrar la ofrenda');
+      return;
+    }
+
+    const parsedAmount = Number(montoOfrenda);
+    if (!montoOfrenda.trim() || Number.isNaN(parsedAmount) || parsedAmount < 0) {
+      alert('Ingresá un monto de ofrenda válido');
+      return;
+    }
+
+    setSavingOffering(true);
+    try {
+      const { data } = await apiClient.put<CasaPazSesion>(
+        `/asistencias-casa-paz/${resolvedParams.id}/sesion`,
+        {
+          fecha,
+          montoOfrenda: parsedAmount,
+        },
+      );
+      setSesion(data);
+      setMontoOfrenda(String(data.montoOfrenda));
+      setFechasDisponibles((current) =>
+        normalizeAttendanceDateOptions(
+          current.includes(data.fecha) ? current : [...current, data.fecha],
+        ),
+      );
+    } catch (error) {
+      console.error(error);
+      alert('Error guardando la ofrenda');
+    } finally {
+      setSavingOffering(false);
+    }
+  };
+
+  const formatPersonaName = (persona: PersonaResumen | null) => {
+    if (!persona) return '—';
+    const fullName = `${persona.nombres || ''} ${persona.apellidos || ''}`.trim();
+    if (fullName) return fullName;
+    return persona.id;
   };
 
   if (loadingBase && !asistencia) {
@@ -246,13 +339,101 @@ export default function DetalleAsistenciaCasaPazPage({
           )}
         </div>
 
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-5">
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="font-semibold text-slate-900">Personas registradas</h2>
-            <span className="text-sm text-slate-500">
-              {hasFechaSeleccionada ? `${registros.length} en esta página` : 'Seleccioná una fecha'}
-            </span>
+        <div className="lg:col-span-2 space-y-5">
+          <div className="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 className="font-semibold text-slate-900 mb-4">Roles asignados</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Persona a cargo
+                </p>
+                <p className="mt-2 text-sm font-medium text-slate-900">
+                  {formatPersonaName(asistencia.personaACargo)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Anfitrión
+                </p>
+                <p className="mt-2 text-sm font-medium text-slate-900">
+                  {formatPersonaName(asistencia.anfitrion)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Líder principal
+                </p>
+                <p className="mt-2 text-sm font-medium text-slate-900">
+                  {formatPersonaName(asistencia.liderPrincipal)}
+                </p>
+              </div>
+            </div>
           </div>
+
+          <div className="bg-white border border-slate-200 rounded-lg p-5">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-900">Ofrenda por reunión</h2>
+                <p className="text-sm text-slate-500">
+                  Seleccioná o cargá una fecha para guardar el monto de ofrenda.
+                </p>
+              </div>
+              {hasFechaSeleccionada && sesion?.exists && (
+                <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                  Ofrenda registrada
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3 md:flex-row md:items-end">
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium text-slate-700">Fecha de reunión</label>
+                <input
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => {
+                    setFecha(e.target.value);
+                    setPage(1);
+                  }}
+                  className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium text-slate-700">Monto de ofrenda</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={montoOfrenda}
+                  onChange={(e) => setMontoOfrenda(e.target.value)}
+                  placeholder="0"
+                  className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900"
+                />
+              </div>
+              <button
+                type="button"
+                disabled={savingOffering}
+                onClick={handleSaveOffering}
+                className="min-h-11 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+              >
+                {savingOffering ? 'Guardando...' : 'Guardar ofrenda'}
+              </button>
+            </div>
+
+            {!hasFechaSeleccionada && (
+              <p className="mt-3 text-sm text-slate-500">
+                Seleccioná una fecha para registrar la ofrenda.
+              </p>
+            )}
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-lg p-5">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="font-semibold text-slate-900">Personas registradas</h2>
+              <span className="text-sm text-slate-500">
+                {hasFechaSeleccionada ? `${registros.length} en esta página` : 'Seleccioná una fecha'}
+              </span>
+            </div>
 
           <form onSubmit={handleSearch} className="mb-4 flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
@@ -282,13 +463,13 @@ export default function DetalleAsistenciaCasaPazPage({
               ))}
             </select>
             <label className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 md:justify-center">
-                <input
-                  type="checkbox"
-                  checked={soloNuevos}
-                  disabled={!hasFechaSeleccionada}
-                  onChange={(e) => {
-                    setSoloNuevos(e.target.checked);
-                    setPage(1);
+              <input
+                type="checkbox"
+                checked={soloNuevos}
+                disabled={!hasFechaSeleccionada}
+                onChange={(e) => {
+                  setSoloNuevos(e.target.checked);
+                  setPage(1);
                 }}
               />
               Solo nuevos
@@ -310,64 +491,64 @@ export default function DetalleAsistenciaCasaPazPage({
 
           <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
             <div className="min-w-full rounded-md border border-slate-200">
-            <table className="min-w-[680px] w-full text-left text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Persona</th>
-                  <th className="px-4 py-3 font-semibold">Documento</th>
-                  <th className="px-4 py-3 font-semibold">Celular</th>
-                  <th className="px-4 py-3 font-semibold">Tipo</th>
-                  <th className="px-4 py-3 font-semibold">Fecha</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {loadingRegistros ? (
+              <table className="min-w-[680px] w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                      Cargando registros...
-                    </td>
+                    <th className="px-4 py-3 font-semibold">Persona</th>
+                    <th className="px-4 py-3 font-semibold">Documento</th>
+                    <th className="px-4 py-3 font-semibold">Celular</th>
+                    <th className="px-4 py-3 font-semibold">Tipo</th>
+                    <th className="px-4 py-3 font-semibold">Fecha</th>
                   </tr>
-                ) : !hasFechaSeleccionada ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                      Seleccioná una fecha para ver los registros.
-                    </td>
-                  </tr>
-                ) : registros.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                      No hay personas registradas con este filtro.
-                    </td>
-                  </tr>
-                ) : (
-                  registros.map((registro) => (
-                    <tr key={registro.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        {registro.persona?.nombres || ''} {registro.persona?.apellidos || ''}
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {loadingRegistros ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                        Cargando registros...
                       </td>
-                      <td className="px-4 py-3 text-slate-700">
-                        {registro.persona?.documento || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">
-                        {registro.persona?.celular || '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                            registro.esNuevo
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-green-100 text-green-700'
-                          }`}
-                        >
-                          {registro.esNuevo ? 'NUEVA' : 'EXISTENTE'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">{registro.fechaRegistro}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : !hasFechaSeleccionada ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                        Seleccioná una fecha para ver los registros.
+                      </td>
+                    </tr>
+                  ) : registros.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                        No hay personas registradas con este filtro.
+                      </td>
+                    </tr>
+                  ) : (
+                    registros.map((registro) => (
+                      <tr key={registro.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-900">
+                          {registro.persona?.nombres || ''} {registro.persona?.apellidos || ''}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {registro.persona?.documento || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {registro.persona?.celular || '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`px-2 py-1 text-xs rounded-full font-semibold ${
+                              registro.esNuevo
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-green-100 text-green-700'
+                            }`}
+                          >
+                            {registro.esNuevo ? 'NUEVA' : 'EXISTENTE'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">{registro.fechaRegistro}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -392,6 +573,7 @@ export default function DetalleAsistenciaCasaPazPage({
               Siguiente
             </button>
           </div>
+        </div>
         </div>
       </div>
 

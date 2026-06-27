@@ -8,23 +8,27 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
 import { AsistenciasCasaPazService } from './asistencias-casa-paz.service';
 import type {
   CasaPazSesionUpsertDto,
+  CasaPazReportQuery,
   CompletePublicProfileCasaPazDto,
   CreateAsistenciaCasaPazDto,
   ListAsistenciasCasaPazQuery,
   ListRegistrosCasaPazQuery,
+  PersonaRoleOptionDto,
   RegistrarAsistenciaPublicaCasaPazDto,
   UpdateAsistenciaCasaPazDto,
 } from './asistencias-casa-paz.service';
 import { EstadoAsistenciaCasaPaz } from '../../common/enums/estado-asistencia-casa-paz.enum';
 import {
-  AdminReadAccess,
   AdminDeleteAccess,
-  AdminWriteAccess,
+  CasaDePazReadAccess,
+  CasaDePazWriteAccess,
 } from '../auth/admin-access.decorator';
+import { AuthenticatedUser } from '../../common/utils/role.util';
 
 @Controller('asistencias-casa-paz')
 export class AsistenciasCasaPazController {
@@ -32,16 +36,70 @@ export class AsistenciasCasaPazController {
     private readonly asistenciasCasaPazService: AsistenciasCasaPazService,
   ) {}
 
-  @AdminReadAccess()
+  @CasaDePazReadAccess()
   @Get()
-  findAll(@Query() query: ListAsistenciasCasaPazQuery): Promise<unknown> {
-    return this.asistenciasCasaPazService.findAll(query);
+  findAll(
+    @Query() query: ListAsistenciasCasaPazQuery,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findAll(query, req.user);
   }
 
-  @AdminWriteAccess()
+  @CasaDePazReadAccess()
+  @Get('person-options')
+  findPersonaRoleOptions(): Promise<PersonaRoleOptionDto[]> {
+    return this.asistenciasCasaPazService.findPersonaRoleOptions();
+  }
+
+  @CasaDePazReadAccess()
+  @Get('reportes/resumen-general')
+  findGeneralReport(@Req() req: { user: AuthenticatedUser }): Promise<unknown> {
+    return this.asistenciasCasaPazService.findGeneralReport(req.user);
+  }
+
+  @CasaDePazReadAccess()
+  @Get('reportes/mensual')
+  findMonthlyReport(
+    @Query() query: CasaPazReportQuery,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findMonthlyReport(
+      query.month,
+      req.user,
+    );
+  }
+
+  @CasaDePazReadAccess()
+  @Get('reportes/diario')
+  findDailyReport(
+    @Query() query: CasaPazReportQuery,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findDailyReport(
+      query.fecha,
+      req.user,
+    );
+  }
+
+  @CasaDePazReadAccess()
+  @Get('reportes/encounter-candidates')
+  findEncounterCandidates(
+    @Query() query: CasaPazReportQuery,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findEncounterCandidatesReport(
+      query,
+      req.user,
+    );
+  }
+
+  @CasaDePazWriteAccess()
   @Post()
-  create(@Body() payload: CreateAsistenciaCasaPazDto): Promise<unknown> {
-    return this.asistenciasCasaPazService.create(payload);
+  create(
+    @Body() payload: CreateAsistenciaCasaPazDto,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.create(payload, req.user);
   }
 
   @Get('public/:token')
@@ -65,28 +123,55 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.completePublicProfile(token, payload);
   }
 
-  @AdminReadAccess()
-  @Get(':id')
-  findOne(@Param('id') id: string): Promise<unknown> {
-    return this.asistenciasCasaPazService.findOne(id);
+  @Put('public/:token/ofrenda')
+  upsertPublicOffering(
+    @Param('token') token: string,
+    @Body() payload: { montoOfrenda: number },
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.upsertPublicOffering(token, payload);
   }
 
-  @AdminWriteAccess()
+  @CasaDePazReadAccess()
+  @Get(':id')
+  findOne(
+    @Param('id') id: string,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findOne(id, req.user);
+  }
+
+  @CasaDePazReadAccess()
+  @Get(':id/reportes')
+  findDetailReport(
+    @Param('id') id: string,
+    @Query() query: CasaPazReportQuery,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<unknown> {
+    return this.asistenciasCasaPazService.findDetailReport(id, query, req.user);
+  }
+
+  @CasaDePazWriteAccess()
   @Put(':id')
   update(
     @Param('id') id: string,
     @Body() payload: UpdateAsistenciaCasaPazDto,
+    @Req() req: { user: AuthenticatedUser },
   ): Promise<unknown> {
-    return this.asistenciasCasaPazService.update(id, payload);
+    return this.asistenciasCasaPazService.update(id, payload, req.user);
   }
 
-  @AdminWriteAccess()
+  @CasaDePazWriteAccess()
   @Patch(':id/estado')
   setEstado(
     @Param('id') id: string,
     @Body() payload: { estado: EstadoAsistenciaCasaPaz },
+    @Req() req: { user: AuthenticatedUser },
   ): Promise<unknown> {
-    return this.asistenciasCasaPazService.setEstado(id, payload.estado);
+    return this.asistenciasCasaPazService.setEstado(
+      id,
+      payload.estado,
+      req.user,
+    );
   }
 
   @AdminDeleteAccess()
@@ -95,59 +180,85 @@ export class AsistenciasCasaPazController {
     return this.asistenciasCasaPazService.remove(id);
   }
 
-  @AdminReadAccess()
+  @CasaDePazReadAccess()
   @Get(':id/registros')
   findRegistrosByAsistencia(
     @Param('id') id: string,
     @Query() query: ListRegistrosCasaPazQuery,
+    @Req() req: { user: AuthenticatedUser },
   ): Promise<unknown> {
-    return this.asistenciasCasaPazService.findRegistrosByAsistencia(id, query);
+    return this.asistenciasCasaPazService.findRegistrosByAsistencia(
+      id,
+      query,
+      req.user,
+    );
   }
 
-  @AdminReadAccess()
+  @CasaDePazReadAccess()
   @Get(':id/registros/fechas')
   findFechasDisponiblesByAsistencia(
     @Param('id') id: string,
+    @Req() req: { user: AuthenticatedUser },
   ): Promise<unknown> {
-    return this.asistenciasCasaPazService.findFechasDisponiblesByAsistencia(id);
+    return this.asistenciasCasaPazService.findFechasDisponiblesByAsistencia(
+      id,
+      req.user,
+    );
   }
 
-  @AdminReadAccess()
+  @CasaDePazReadAccess()
   @Get(':id/registros/resumen')
   findResumenByAsistencia(
     @Param('id') id: string,
     @Query('fecha') fecha: string,
+    @Req() req: { user: AuthenticatedUser },
   ): Promise<unknown> {
-    return this.asistenciasCasaPazService.findResumenByAsistencia(id, fecha);
+    return this.asistenciasCasaPazService.findResumenByAsistencia(
+      id,
+      fecha,
+      req.user,
+    );
   }
 
-  @AdminReadAccess()
+  @CasaDePazReadAccess()
   @Get(':id/registros/resumen-por-red')
   findResumenPorRedByAsistencia(
     @Param('id') id: string,
     @Query('fecha') fecha: string,
+    @Req() req: { user: AuthenticatedUser },
   ): Promise<unknown> {
     return this.asistenciasCasaPazService.findResumenPorRedByAsistencia(
       id,
       fecha,
+      req.user,
     );
   }
 
-  @AdminReadAccess()
+  @CasaDePazReadAccess()
   @Get(':id/sesion')
   findSesionByAsistencia(
     @Param('id') id: string,
     @Query('fecha') fecha: string,
+    @Req() req: { user: AuthenticatedUser },
   ): Promise<unknown> {
-    return this.asistenciasCasaPazService.findSesionByAsistencia(id, fecha);
+    return this.asistenciasCasaPazService.findSesionByAsistencia(
+      id,
+      fecha,
+      req.user,
+    );
   }
 
-  @AdminWriteAccess()
+  @CasaDePazWriteAccess()
   @Put(':id/sesion')
   upsertSesionByAsistencia(
     @Param('id') id: string,
     @Body() payload: CasaPazSesionUpsertDto,
+    @Req() req: { user: AuthenticatedUser },
   ): Promise<unknown> {
-    return this.asistenciasCasaPazService.upsertSesionByAsistencia(id, payload);
+    return this.asistenciasCasaPazService.upsertSesionByAsistencia(
+      id,
+      payload,
+      req.user,
+    );
   }
 }

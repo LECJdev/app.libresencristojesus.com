@@ -1,25 +1,39 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, LayoutDashboard, Users, BarChart3, QrCode, ShieldCheck, CalendarCheck, Network, Building2, MapPin, FolderTree, ChevronDown, ChevronRight, Menu, X } from 'lucide-react';
+import { LogOut, FolderTree, ChevronDown, ChevronRight, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { ROLE_LABELS } from '@/lib/roles';
 import BrandLogo from '@/components/BrandLogo';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, isAdmin, isSuperAdmin, logout } = useAuth();
+  const {
+    user,
+    loading,
+    isAdmin,
+    adminNavigationSections,
+    defaultAdminPath,
+    canAccessAdminPath,
+    logout,
+  } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isStructureOpen, setIsStructureOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const isAuthorizedForPath = useMemo(() => canAccessAdminPath(pathname), [canAccessAdminPath, pathname]);
+
   useEffect(() => {
     if (!loading && !isAdmin) {
       router.push('/login');
     }
-  }, [loading, isAdmin, router]);
+
+    if (!loading && isAdmin && !isAuthorizedForPath && defaultAdminPath) {
+      router.push(defaultAdminPath);
+    }
+  }, [defaultAdminPath, isAdmin, isAuthorizedForPath, loading, router]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -37,7 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
   }, [isSidebarOpen]);
 
-  if (loading || !isAdmin) {
+  if (loading || !isAdmin || !isAuthorizedForPath) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -45,30 +59,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  const routes = [
-    { name: 'Panel General', path: '/admin', icon: LayoutDashboard },
-    { name: 'Asistencia', path: '/admin/asistencias', icon: CalendarCheck },
-    { name: 'Registros de Eventos', path: '/admin/eventos', icon: CalendarCheck },
-    { name: 'Reportes', path: '/admin/reportes', icon: BarChart3 },
-    { name: 'Generador QR', path: '/admin/qr', icon: QrCode },
-  ];
+  const { main: routes, structure: structureRoutes, superAdmin: superAdminRoutes } = adminNavigationSections;
 
-  const structureRoutes = [
-    { name: 'Personas', path: '/admin/personas', icon: Users },
-    { name: 'Redes', path: '/admin/redes', icon: Network },
-    { name: 'Sedes', path: '/admin/sedes', icon: Building2 },
-    { name: 'Distritos', path: '/admin/distritos', icon: MapPin },
-  ];
-
-  const superAdminRoutes = [
-    { name: 'Gestión de Usuarios', path: '/admin/usuarios', icon: ShieldCheck },
-  ];
-
-  const isInStructureSection =
-    pathname.startsWith('/admin/personas') ||
-    pathname.startsWith('/admin/redes') ||
-    pathname.startsWith('/admin/sedes') ||
-    pathname.startsWith('/admin/distritos');
+  const isInStructureSection = structureRoutes.some(
+    (route) => pathname === route.path || pathname.startsWith(`${route.path}/`),
+  );
 
   return (
     <div className="min-h-screen bg-gray-100 md:flex">
@@ -123,55 +118,58 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                  }`}
               >
                 <Icon className="h-5 w-5" />
-                {route.name}
-              </Link>
-            );
-          })}
+                 {route.label}
+               </Link>
+             );
+           })}
 
-            <div className="px-3 pb-1 pt-4">
-            <button
-              type="button"
-              onClick={() => setIsStructureOpen((prev) => !prev)}
-                className="flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-1 text-xs font-semibold uppercase tracking-wider text-slate-500 transition-colors hover:text-slate-300"
-            >
-              <span className="flex items-center gap-2">
-                <FolderTree className="h-4 w-4" />
-                Estructura
-              </span>
-              {isStructureOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
-          </div>
-          {(isStructureOpen || isInStructureSection) && (
-            <div className="space-y-1">
-              {structureRoutes.map((route) => {
-                const Icon = route.icon;
-                const isActive =
-                  pathname === route.path || pathname.startsWith(`${route.path}/`);
-                return (
-                  <Link
-                    key={route.path}
-                    href={route.path}
-                    className={`ml-3 flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                       isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-                     }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {route.name}
-                  </Link>
-                );
-              })}
-            </div>
+          {structureRoutes.length > 0 && (
+            <>
+              <div className="px-3 pb-1 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsStructureOpen((prev) => !prev)}
+                  className="flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-1 text-xs font-semibold uppercase tracking-wider text-slate-500 transition-colors hover:text-slate-300"
+                >
+                  <span className="flex items-center gap-2">
+                    <FolderTree className="h-4 w-4" />
+                    Estructura
+                  </span>
+                  {isStructureOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </button>
+              </div>
+              {(isStructureOpen || isInStructureSection) && (
+                <div className="space-y-1">
+                  {structureRoutes.map((route) => {
+                    const Icon = route.icon;
+                    const isActive =
+                      pathname === route.path || pathname.startsWith(`${route.path}/`);
+                    return (
+                      <Link
+                        key={route.path}
+                        href={route.path}
+                        className={`ml-3 flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                          isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {route.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
 
-          {/* Super Admin exclusive section */}
-          {isSuperAdmin && (
+          {superAdminRoutes.length > 0 && (
             <>
               <div className="pt-4 pb-1 px-3">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Super Admin</p>
               </div>
-              {superAdminRoutes.map((route) => {
-                const Icon = route.icon;
-                const isActive = pathname === route.path;
+               {superAdminRoutes.map((route) => {
+                 const Icon = route.icon;
+                 const isActive = pathname === route.path;
                 return (
                   <Link
                     key={route.path}
@@ -181,10 +179,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                      }`}
                   >
                     <Icon className="h-5 w-5" />
-                    {route.name}
-                  </Link>
-                );
-              })}
+                     {route.label}
+                   </Link>
+                 );
+               })}
             </>
           )}
         </nav>

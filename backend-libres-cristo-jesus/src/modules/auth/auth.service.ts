@@ -3,17 +3,20 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PersonasService } from '../personas/personas.service';
 import * as bcrypt from 'bcrypt';
-import { Rol } from '../../common/enums/rol.enum';
+import { CASA_DE_PAZ_ACCESS_ROLES, Rol } from '../../common/enums/rol.enum';
+import { sanitizeOptionalEmail } from '../../common/utils/input-security.util';
 import {
-  sanitizeCelularOrThrow,
-  sanitizeOptionalEmail,
-} from '../../common/utils/input-security.util';
+  getPrimaryRole,
+  hasAnyRole,
+  normalizeRoles,
+} from '../../common/utils/role.util';
 
 type AdminLoginPrincipal = {
   id: string;
   nombres?: string | null;
   apellidos?: string | null;
   rol: Rol;
+  roles?: Rol[] | null;
   password?: string | null;
 };
 
@@ -33,7 +36,12 @@ export class AuthService {
     const legacySuperAdmin = this.getLegacySuperAdminCredentials();
     const normalizedIdentifier = identifier?.trim();
 
-    if (this.isLegacySuperAdminUsername(normalizedIdentifier, legacySuperAdmin.username)) {
+    if (
+      this.isLegacySuperAdminUsername(
+        normalizedIdentifier,
+        legacySuperAdmin.username,
+      )
+    ) {
       if (pass !== legacySuperAdmin.password) {
         throw new UnauthorizedException('Contraseña incorrecta');
       }
@@ -43,6 +51,7 @@ export class AuthService {
         nombres: 'Legacy',
         apellidos: 'Super Admin',
         rol: Rol.SUPER_ADMIN,
+        roles: [Rol.SUPER_ADMIN],
       });
     }
 
@@ -51,10 +60,7 @@ export class AuthService {
       throw new UnauthorizedException('Usuario no encontrado');
     }
 
-    const isAuthorized =
-      persona.rol === Rol.ADMIN ||
-      persona.rol === Rol.SUPER_ADMIN ||
-      persona.rol === Rol.PERSONAL_ADMINISTRATIVO;
+    const isAuthorized = hasAnyRole(persona, CASA_DE_PAZ_ACCESS_ROLES);
     if (!isAuthorized) {
       throw new UnauthorizedException(
         'No tienes permisos para acceder al sistema',
@@ -74,7 +80,9 @@ export class AuthService {
   }
 
   private buildLoginResponse(persona: AdminLoginPrincipal) {
-    const payload = { sub: persona.id, rol: persona.rol };
+    const roles = normalizeRoles(persona);
+    const rol = getPrimaryRole({ roles, rol: persona.rol });
+    const payload = { sub: persona.id, rol, roles };
 
     return {
       access_token: this.jwtService.sign(payload),
@@ -82,7 +90,8 @@ export class AuthService {
         id: persona.id,
         nombres: persona.nombres ?? '',
         apellidos: persona.apellidos ?? '',
-        rol: persona.rol,
+        rol,
+        roles,
       },
     };
   }
@@ -114,20 +123,11 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    if (normalizedIdentifier.includes('@')) {
-      const normalizedCorreo = sanitizeOptionalEmail(normalizedIdentifier);
-      if (!normalizedCorreo) {
-        throw new UnauthorizedException('Credenciales inválidas');
-      }
-
-      return this.personasService.findByCorreo(normalizedCorreo);
-    }
-
-    try {
-      const normalizedCelular = sanitizeCelularOrThrow(normalizedIdentifier);
-      return this.personasService.findByCelular(normalizedCelular);
-    } catch {
+    const normalizedCorreo = sanitizeOptionalEmail(normalizedIdentifier);
+    if (!normalizedCorreo) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
+
+    return this.personasService.findByCorreo(normalizedCorreo);
   }
 }

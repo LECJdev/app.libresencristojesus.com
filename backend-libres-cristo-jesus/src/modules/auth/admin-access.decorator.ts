@@ -1,5 +1,6 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
 import {
+  CASA_DE_PAZ_ACCESS_ROLES,
   ADMIN_WRITE_ROLES,
   ADMIN_DELETE_ROLES,
 } from '../../common/enums/rol.enum';
@@ -25,5 +26,19 @@ export function AdminDeleteAccess() {
   return applyDecorators(
     UseGuards(JwtAuthGuard, RolesGuard),
     Roles(...ADMIN_DELETE_ROLES),
+  );
+}
+
+export function CasaDePazReadAccess() {
+  return applyDecorators(
+    UseGuards(JwtAuthGuard, RolesGuard),
+    Roles(...CASA_DE_PAZ_ACCESS_ROLES),
+  );
+}
+
+export function CasaDePazWriteAccess() {
+  return applyDecorators(
+    UseGuards(JwtAuthGuard, RolesGuard),
+    Roles(...CASA_DE_PAZ_ACCESS_ROLES),
   );
 }

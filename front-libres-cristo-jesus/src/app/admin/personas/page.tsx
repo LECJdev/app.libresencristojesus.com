@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
-import { Plus, Trash2, Edit2, Save, X, Users, Search, ShieldPlus } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Users, Search, ShieldPlus, House } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { ROLE_LABELS, type UserRole } from '@/lib/roles';
+import { normalizeRoles, ROLE_COLORS, ROLE_LABELS, type UserRole } from '@/lib/roles';
 
 interface Persona {
   id: string;
@@ -20,6 +20,7 @@ interface Persona {
   correo: string | null;
   barrio: string | null;
   rol: UserRole;
+  roles?: UserRole[];
   red: { id: string; nombre: string } | null;
   invitadoPor: { id: string; nombres: string; apellidos: string } | null;
 }
@@ -27,7 +28,7 @@ interface Persona {
 interface SelectOption { id: string; nombre?: string; nombres?: string; apellidos?: string; }
 
 export default function PersonasPage() {
-  const { canDeleteData, isSuperAdmin } = useAuth();
+  const { canAssignCasaDePazLeader, canDeleteData, isSuperAdmin } = useAuth();
   const [items, setItems] = useState<Persona[]>([]);
   const [redes, setRedes] = useState<SelectOption[]>([]);
   const [personas, setPersonas] = useState<SelectOption[]>([]);
@@ -110,6 +111,24 @@ export default function PersonasPage() {
       alert(e.response?.data?.message || 'Error al promover la persona');
     }
   };
+
+  const handleAssignCasaDePazLeader = async (personaId: string) => {
+    if (!canAssignCasaDePazLeader) return;
+    if (!confirm('Assign Casa de Paz leader access to this person? Initial access will use email + document when needed.')) return;
+
+    try {
+      await apiClient.post('/personas/admin/asignar-lider-casa-de-paz', {
+        personaId,
+      });
+      fetchAll();
+    } catch (error: unknown) {
+      const e = error as { response?: { data?: { message?: string } } };
+      alert(e.response?.data?.message || 'Error assigning Casa de Paz leader access');
+    }
+  };
+
+  const hasCasaDePazLeaderRole = (persona: Persona) =>
+    normalizeRoles({ rol: persona.rol, roles: persona.roles }).includes('LIDER_CASA_DE_PAZ');
 
   const filtered = items.filter(p => {
     if (!searchTerm) return true;
@@ -243,13 +262,13 @@ export default function PersonasPage() {
               <th className="px-6 py-4 font-semibold">Documento</th>
               <th className="px-6 py-4 font-semibold">Celular</th>
               <th className="px-6 py-4 font-semibold">Red</th>
-              <th className="px-6 py-4 font-semibold">Rol</th>
+              <th className="px-6 py-4 font-semibold">Roles</th>
               <th className="px-6 py-4 font-semibold text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">No hay personas registradas.</td></tr>
+              <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">No hay personas registradas.</td></tr>
             ) : filtered.map(item => (
               <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-slate-900">{item.nombres} {item.apellidos}</td>
@@ -257,15 +276,28 @@ export default function PersonasPage() {
                 <td className="px-6 py-4 text-slate-600">{item.celular || '—'}</td>
                 <td className="px-6 py-4 text-slate-600">{item.red?.nombre || '—'}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                    item.rol === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-700' :
-                    item.rol === 'ADMIN' ? 'bg-blue-100 text-blue-700' :
-                    item.rol === 'PERSONAL_ADMINISTRATIVO' ? 'bg-amber-100 text-amber-700' :
-                    'bg-slate-100 text-slate-700'
-                  }`}>{ROLE_LABELS[item.rol]}</span>
+                  <div className="flex flex-wrap gap-2">
+                    {normalizeRoles({ rol: item.rol, roles: item.roles }).map((role) => (
+                      <span
+                        key={`${item.id}-${role}`}
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ROLE_COLORS[role]}`}
+                      >
+                        {ROLE_LABELS[role]}
+                      </span>
+                    ))}
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
+                    {canAssignCasaDePazLeader && !hasCasaDePazLeaderRole(item) && item.documento && item.correo && (
+                      <button
+                        onClick={() => handleAssignCasaDePazLeader(item.id)}
+                        className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                        title="Assign Casa de Paz leader access"
+                      >
+                        <House className="h-4 w-4" />
+                      </button>
+                    )}
                     {isSuperAdmin && item.rol === 'INTEGRANTE' && item.documento && item.correo && (
                       <button
                         onClick={() => handlePromote(item.id)}

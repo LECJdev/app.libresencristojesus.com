@@ -6,41 +6,53 @@ import {
   Delete,
   Param,
   Body,
+  Req,
 } from '@nestjs/common';
 import { CasasDePazService } from './casas-de-paz.service';
 import { CasaDePaz } from './casa-de-paz.entity';
 import {
   AdminDeleteAccess,
-  AdminWriteAccess,
+  CasaDePazReadAccess,
+  CasaDePazWriteAccess,
 } from '../auth/admin-access.decorator';
+import { AuthenticatedUser } from '../../common/utils/role.util';
 
 @Controller('casas-de-paz')
 export class CasasDePazController {
   constructor(private readonly casasDePazService: CasasDePazService) {}
 
+  @CasaDePazReadAccess()
   @Get()
-  findAll(): Promise<CasaDePaz[]> {
-    return this.casasDePazService.findAll();
+  findAll(@Req() req: { user: AuthenticatedUser }): Promise<CasaDePaz[]> {
+    return this.casasDePazService.findAll(req.user);
   }
 
+  @CasaDePazReadAccess()
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<CasaDePaz | null> {
-    return this.casasDePazService.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<CasaDePaz> {
+    return this.casasDePazService.findOne(id, req.user);
   }
 
-  @AdminWriteAccess()
+  @CasaDePazWriteAccess()
   @Post()
-  create(@Body() data: Partial<CasaDePaz>): Promise<CasaDePaz> {
-    return this.casasDePazService.create(data);
+  create(
+    @Body() data: Partial<CasaDePaz>,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<CasaDePaz> {
+    return this.casasDePazService.create(data, req.user);
   }
 
-  @AdminWriteAccess()
+  @CasaDePazWriteAccess()
   @Put(':id')
   update(
     @Param('id') id: string,
     @Body() data: Partial<CasaDePaz>,
-  ): Promise<CasaDePaz | null> {
-    return this.casasDePazService.update(id, data);
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<CasaDePaz> {
+    return this.casasDePazService.update(id, data, req.user);
   }
 
   @AdminDeleteAccess()

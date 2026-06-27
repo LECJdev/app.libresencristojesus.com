@@ -22,6 +22,7 @@ export interface PublicAttendanceFlowConfig {
   attendanceEndpoint: string;
   registerEndpoint: string;
   followUpEndpoint: string;
+  offeringEndpoint?: string;
   askDescriptionLines: PublicAttendanceDescriptionLine[];
   summaryFields: PublicAttendanceSummaryFieldConfig[];
 }
@@ -53,6 +54,7 @@ export const publicAttendanceConfigs = {
     attendanceEndpoint: '/asistencias-casa-paz/public/[token]',
     registerEndpoint: '/asistencias-casa-paz/public/[token]/registrar',
     followUpEndpoint: '/asistencias-casa-paz/public/[token]/completar-perfil',
+    offeringEndpoint: '/asistencias-casa-paz/public/[token]/ofrenda',
     askDescriptionLines: [
       {
         parts: [{ type: 'field', value: 'nombre', fallback: '—' }],

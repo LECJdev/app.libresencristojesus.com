@@ -2,8 +2,14 @@
 
 import { useEffect, useMemo, useState, use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import { CasaPazReportPanel } from '@/components/casa-paz/casa-paz-report-panel';
 import { normalizeAttendanceDateOptions } from '@/lib/attendance-date';
+import {
+  getCurrentMonthValue,
+  type CasaPazReportResponse,
+} from '@/lib/casa-paz-reports';
 import {
   AttendanceSummaryPanel,
   type AttendanceRedSummary,
@@ -75,6 +81,7 @@ export default function DetalleAsistenciaCasaPazPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const router = useRouter();
   const resolvedParams = use(params);
 
   const [asistencia, setAsistencia] = useState<AsistenciaCasaPaz | null>(null);
@@ -86,7 +93,11 @@ export default function DetalleAsistenciaCasaPazPage({
   const [fechasDisponibles, setFechasDisponibles] = useState<string[]>([]);
   const [sesion, setSesion] = useState<CasaPazSesion | null>(null);
   const [montoOfrenda, setMontoOfrenda] = useState('');
-  const [savingOffering, setSavingOffering] = useState(false);
+  const [savingSessionAmounts, setSavingSessionAmounts] = useState(false);
+  const [hasDetailAccess, setHasDetailAccess] = useState<boolean | null>(null);
+  const [reportMonth, setReportMonth] = useState(getCurrentMonthValue());
+  const [detailReport, setDetailReport] = useState<CasaPazReportResponse | null>(null);
+  const [loadingDetailReport, setLoadingDetailReport] = useState(true);
 
   const [search, setSearch] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
@@ -103,8 +114,22 @@ export default function DetalleAsistenciaCasaPazPage({
 
   const hasFechaSeleccionada = fecha !== '';
 
+  const getErrorStatus = (error: unknown): number | null => {
+    if (typeof error !== 'object' || error === null) {
+      return null;
+    }
+
+    if (!('response' in error)) {
+      return null;
+    }
+
+    const response = (error as { response?: { status?: number } }).response;
+    return typeof response?.status === 'number' ? response.status : null;
+  };
+
   const fetchBaseData = async () => {
     setLoadingBase(true);
+    setHasDetailAccess(null);
     try {
       const [asistenciaRes, fechasRes] = await Promise.all([
         apiClient.get<AsistenciaCasaPaz>(`/asistencias-casa-paz/${resolvedParams.id}`),
@@ -115,16 +140,28 @@ export default function DetalleAsistenciaCasaPazPage({
 
       setAsistencia(asistenciaRes.data);
       setFechasDisponibles(normalizeAttendanceDateOptions(fechasRes.data));
+      setHasDetailAccess(true);
     } catch (error) {
       console.error(error);
-      alert('Error cargando el detalle de asistencia');
+      setAsistencia(null);
+      setFechasDisponibles([]);
+      setHasDetailAccess(false);
+
+      const status = getErrorStatus(error);
+      if (status === 403 || status === 404) {
+        alert('El detalle de esta Casa de Paz no está disponible para tu cuenta.');
+        router.replace('/admin/asistencias/casa-paz');
+        return;
+      }
+
+      alert('Error al cargar el detalle de la asistencia');
     } finally {
       setLoadingBase(false);
     }
   };
 
   const fetchRegistros = async () => {
-    if (!hasFechaSeleccionada) {
+    if (!hasFechaSeleccionada || hasDetailAccess !== true || !asistencia) {
       setRegistros([]);
       setResumen(null);
       setResumenPorRed([]);
@@ -176,7 +213,7 @@ export default function DetalleAsistenciaCasaPazPage({
   };
 
   const fetchSesion = async () => {
-    if (!hasFechaSeleccionada) {
+    if (!hasFechaSeleccionada || hasDetailAccess !== true || !asistencia) {
       setSesion(null);
       setMontoOfrenda('');
       return;
@@ -192,7 +229,31 @@ export default function DetalleAsistenciaCasaPazPage({
       setMontoOfrenda(data.exists || data.montoOfrenda > 0 ? String(data.montoOfrenda) : '');
     } catch (error) {
       console.error(error);
-      alert('Error cargando la ofrenda de la fecha seleccionada');
+      alert('Error al cargar los valores de la sesión seleccionada');
+    }
+  };
+
+  const fetchDetailReport = async () => {
+    if (hasDetailAccess !== true) {
+      setDetailReport(null);
+      return;
+    }
+
+    setLoadingDetailReport(true);
+    try {
+      const { data } = await apiClient.get<CasaPazReportResponse>(
+        `/asistencias-casa-paz/${resolvedParams.id}/reportes`,
+        {
+          params: { month: reportMonth },
+        },
+      );
+
+      setDetailReport(data);
+    } catch (error) {
+      console.error(error);
+      alert('Error al cargar el reporte detallado de Casa de Paz');
+    } finally {
+      setLoadingDetailReport(false);
     }
   };
 
@@ -206,14 +267,6 @@ export default function DetalleAsistenciaCasaPazPage({
   }, [resolvedParams.id]);
 
   useEffect(() => {
-    if (!hasFechaSeleccionada) {
-      setRegistros([]);
-      setResumen(null);
-      setResumenPorRed([]);
-      setTotalPages(1);
-      return;
-    }
-
     const timeoutId = window.setTimeout(() => {
       void fetchRegistros();
     }, 0);
@@ -231,31 +284,54 @@ export default function DetalleAsistenciaCasaPazPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedParams.id, fecha, hasFechaSeleccionada]);
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchDetailReport();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedParams.id, reportMonth, hasDetailAccess]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
     setSubmittedSearch(search);
   };
 
-  const handleSaveOffering = async () => {
+  const normalizeAmountInput = (value: string) => {
+    if (!value.trim()) {
+      return 0;
+    }
+
+    const parsedValue = Number(value);
+    if (Number.isNaN(parsedValue) || parsedValue < 0) {
+      return null;
+    }
+
+    return parsedValue;
+  };
+
+  const handleSaveSessionAmounts = async () => {
     if (!hasFechaSeleccionada) {
-      alert('Seleccioná una fecha para registrar la ofrenda');
+      alert('Selecciona una fecha de reunión antes de guardar los valores');
       return;
     }
 
-    const parsedAmount = Number(montoOfrenda);
-    if (!montoOfrenda.trim() || Number.isNaN(parsedAmount) || parsedAmount < 0) {
-      alert('Ingresá un monto de ofrenda válido');
+    const parsedOffering = normalizeAmountInput(montoOfrenda);
+
+    if (parsedOffering === null) {
+      alert('Ingresa un valor de ofrenda válido que no sea negativo');
       return;
     }
 
-    setSavingOffering(true);
+    setSavingSessionAmounts(true);
     try {
       const { data } = await apiClient.put<CasaPazSesion>(
         `/asistencias-casa-paz/${resolvedParams.id}/sesion`,
         {
           fecha,
-          montoOfrenda: parsedAmount,
+          montoOfrenda: parsedOffering,
         },
       );
       setSesion(data);
@@ -267,9 +343,9 @@ export default function DetalleAsistenciaCasaPazPage({
       );
     } catch (error) {
       console.error(error);
-      alert('Error guardando la ofrenda');
+      alert('Error al guardar los valores de la sesión');
     } finally {
-      setSavingOffering(false);
+      setSavingSessionAmounts(false);
     }
   };
 
@@ -370,22 +446,50 @@ export default function DetalleAsistenciaCasaPazPage({
             </div>
           </div>
 
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Filtro del reporte por Casa de Paz</h2>
+                <p className="text-sm text-slate-500">
+                  Revisa el desempeño mensual de esta Casa de Paz.
+                </p>
+              </div>
+              <label className="text-sm text-slate-600">
+                <span className="mb-1 block font-medium">Mes</span>
+                <input
+                  type="month"
+                  value={reportMonth}
+                  onChange={(e) => setReportMonth(e.target.value)}
+                  className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                />
+              </label>
+            </div>
+
+            <CasaPazReportPanel
+              title="Reporte por Casa de Paz"
+              description={`Métricas de asistencia, sesiones, ofrenda y encuentros para ${reportMonth}.`}
+              report={detailReport}
+              loading={loadingDetailReport}
+              candidateLimit={4}
+            />
+          </div>
+
           <div className="bg-white border border-slate-200 rounded-lg p-5">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="font-semibold text-slate-900">Ofrenda por reunión</h2>
+                <h2 className="font-semibold text-slate-900">Valores de la sesión</h2>
                 <p className="text-sm text-slate-500">
-                  Seleccioná o cargá una fecha para guardar el monto de ofrenda.
+                  Selecciona o ingresa una fecha de reunión para guardar el valor de la ofrenda.
                 </p>
               </div>
               {hasFechaSeleccionada && sesion?.exists && (
                 <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
-                  Ofrenda registrada
+                  Valores guardados
                 </span>
               )}
             </div>
 
-            <div className="flex flex-col gap-3 md:flex-row md:items-end">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-end">
               <div className="flex-1">
                 <label className="mb-1 block text-sm font-medium text-slate-700">Fecha de reunión</label>
                 <input
@@ -399,7 +503,7 @@ export default function DetalleAsistenciaCasaPazPage({
                 />
               </div>
               <div className="flex-1">
-                <label className="mb-1 block text-sm font-medium text-slate-700">Monto de ofrenda</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Valor de la ofrenda</label>
                 <input
                   type="number"
                   min="0"
@@ -412,17 +516,17 @@ export default function DetalleAsistenciaCasaPazPage({
               </div>
               <button
                 type="button"
-                disabled={savingOffering}
-                onClick={handleSaveOffering}
+                disabled={savingSessionAmounts}
+                onClick={handleSaveSessionAmounts}
                 className="min-h-11 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
               >
-                {savingOffering ? 'Guardando...' : 'Guardar ofrenda'}
+                {savingSessionAmounts ? 'Guardando...' : 'Guardar ofrenda'}
               </button>
             </div>
 
             {!hasFechaSeleccionada && (
               <p className="mt-3 text-sm text-slate-500">
-                Seleccioná una fecha para registrar la ofrenda.
+                Selecciona una fecha para registrar los valores de la sesión.
               </p>
             )}
           </div>
@@ -431,7 +535,7 @@ export default function DetalleAsistenciaCasaPazPage({
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="font-semibold text-slate-900">Personas registradas</h2>
               <span className="text-sm text-slate-500">
-                {hasFechaSeleccionada ? `${registros.length} en esta página` : 'Seleccioná una fecha'}
+                {hasFechaSeleccionada ? `${registros.length} en esta página` : 'Selecciona una fecha'}
               </span>
             </div>
 

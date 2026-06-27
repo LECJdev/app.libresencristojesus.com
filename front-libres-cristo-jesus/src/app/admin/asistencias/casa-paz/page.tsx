@@ -1,10 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import { CasaPazReportPanel } from '@/components/casa-paz/casa-paz-report-panel';
 import QrPdfDownload from '@/components/QrPdfDownload';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  buildPersonaName,
+  getCurrentMonthValue,
+  type CasaPazReportResponse,
+  type PersonaOption,
+} from '@/lib/casa-paz-reports';
 import {
   Plus,
   Search,
@@ -30,12 +37,6 @@ type DiaPredica =
 interface Red {
   id: string;
   nombre: string | null;
-}
-
-interface PersonaOption {
-  id: string;
-  nombres: string | null;
-  apellidos: string | null;
 }
 
 interface AsistenciaCasaPaz {
@@ -75,14 +76,203 @@ const DIAS: DiaPredica[] = [
 
 const ESTADOS: EstadoAsistenciaCasaPaz[] = ['ACTIVO', 'INACTIVO'];
 
+interface SearchablePersonaSelectProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: PersonaOption[];
+  selectedOption: PersonaOption | null;
+  disabled?: boolean;
+  required?: boolean;
+  placeholder?: string;
+  lockedMessage?: string;
+}
+
+function buildPersonaSearchText(persona: PersonaOption) {
+  return `${buildPersonaName(persona)} ${persona.id}`.toLowerCase();
+}
+
+function SearchablePersonaSelect({
+  label,
+  value,
+  onChange,
+  options,
+  selectedOption,
+  disabled = false,
+  required = false,
+  placeholder = 'Escribe para buscar una persona',
+  lockedMessage,
+}: SearchablePersonaSelectProps) {
+  const [query, setQuery] = useState(() => (selectedOption ? buildPersonaName(selectedOption) : ''));
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const fieldId = useMemo(
+    () => `persona-select-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    [label],
+  );
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
+
+  const filteredOptions = useMemo(() => {
+    const normalizedSearch = query.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return options;
+    }
+
+    return options.filter((persona) =>
+      buildPersonaSearchText(persona).includes(normalizedSearch),
+    );
+  }, [options, query]);
+
+  const handleSelect = (personaId: string) => {
+    onChange(personaId);
+    const nextSelected = options.find((persona) => persona.id === personaId) ?? null;
+    setQuery(nextSelected ? buildPersonaName(nextSelected) : '');
+    setIsOpen(false);
+  };
+
+  const handleInputChange = (nextValue: string) => {
+    setQuery(nextValue);
+    setIsOpen(true);
+
+    if (value) {
+      onChange('');
+    }
+  };
+
+  const showEmptyState = !disabled && filteredOptions.length === 0;
+  const canClear = !disabled && !required && Boolean(value || query);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <div className="space-y-2">
+        <div className="relative">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onFocus={() => !disabled && setIsOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setIsOpen(false);
+                setQuery(selectedOption ? buildPersonaName(selectedOption) : '');
+              }
+
+              if (e.key === 'Enter' && isOpen && filteredOptions.length > 0) {
+                e.preventDefault();
+                handleSelect(filteredOptions[0].id);
+              }
+            }}
+            disabled={disabled}
+            placeholder={disabled && selectedOption ? buildPersonaName(selectedOption) : placeholder}
+            className="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 text-sm text-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-500"
+            role="combobox"
+            aria-expanded={isOpen}
+            aria-autocomplete="list"
+            aria-controls={`${fieldId}-options`}
+            aria-required={required}
+          />
+          {canClear ? (
+            <button
+              type="button"
+              onClick={() => {
+                onChange('');
+                setQuery('');
+                setIsOpen(false);
+              }}
+              className="absolute inset-y-0 right-2 flex items-center text-slate-400 hover:text-slate-600"
+              aria-label={`Limpiar ${label}`}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+        {isOpen && !disabled ? (
+          <div
+            id={`${fieldId}-options`}
+            role="listbox"
+            className="max-h-52 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-sm"
+          >
+            {!required ? (
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect('')}
+                className="w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Sin selección
+              </button>
+            ) : null}
+            {filteredOptions.map((persona) => {
+              const isSelected = persona.id === value;
+
+              return (
+                <button
+                  key={persona.id}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelect(persona.id)}
+                  className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-50 ${
+                    isSelected ? 'bg-slate-100 text-slate-900 font-medium' : 'text-slate-700'
+                  }`}
+                >
+                  {buildPersonaName(persona)}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        {disabled && lockedMessage ? (
+          <p className="text-xs text-slate-500">{lockedMessage}</p>
+        ) : showEmptyState ? (
+          <p className="text-xs text-slate-500">No hay personas que coincidan con la búsqueda actual.</p>
+        ) : (
+          <p className="text-xs text-slate-500">
+            {filteredOptions.length} persona{filteredOptions.length === 1 ? '' : 's'} disponible{filteredOptions.length === 1 ? '' : 's'}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AsistenciasCasaPazPage() {
   const router = useRouter();
-  const { canDeleteData } = useAuth();
+  const { canDeleteData, isScopedCasaDePazLeader, loading: authLoading, user } = useAuth();
+
+  const currentLeaderOption = useMemo<PersonaOption | null>(
+    () =>
+      user
+        ? {
+            id: user.id,
+            nombres: user.nombres,
+            apellidos: user.apellidos,
+          }
+        : null,
+    [user],
+  );
 
   const [items, setItems] = useState<AsistenciaCasaPaz[]>([]);
   const [redes, setRedes] = useState<Red[]>([]);
   const [personas, setPersonas] = useState<PersonaOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [summaryReport, setSummaryReport] = useState<CasaPazReportResponse | null>(null);
+  const [monthlyReport, setMonthlyReport] = useState<CasaPazReportResponse | null>(null);
+  const [reportMonth, setReportMonth] = useState(getCurrentMonthValue());
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -110,18 +300,18 @@ export default function AsistenciasCasaPazPage() {
   ) => {
     setLoading(true);
     try {
-      const [{ data: asistencias }, { data: redesData }, { data: personasData }] = await Promise.all([
+      const [{ data: asistencias }, { data: redesData }, personasResponse] = await Promise.all([
         apiClient.get<PagedResponse<AsistenciaCasaPaz>>('/asistencias-casa-paz', {
           params: { search: nextSearch, page: nextPage, limit },
         }),
         apiClient.get<Red[]>('/redes'),
-        apiClient.get<PersonaOption[]>('/personas'),
+        apiClient.get<PersonaOption[]>('/asistencias-casa-paz/person-options'),
       ]);
 
       setItems(asistencias.data);
       setTotalPages(asistencias.totalPages || 1);
       setRedes(redesData);
-      setPersonas(personasData);
+      setPersonas(personasResponse.data);
     } catch (error) {
       console.error(error);
       alert('Error cargando asistencias de casa de paz');
@@ -130,10 +320,51 @@ export default function AsistenciasCasaPazPage() {
     }
   };
 
+  const fetchReports = async (month: string = reportMonth) => {
+    setLoadingReports(true);
+    try {
+      const [{ data: summary }, { data: monthly }] = await Promise.all([
+        apiClient.get<CasaPazReportResponse>('/asistencias-casa-paz/reportes/resumen-general'),
+        apiClient.get<CasaPazReportResponse>('/asistencias-casa-paz/reportes/mensual', {
+          params: { month },
+        }),
+      ]);
+
+      setSummaryReport(summary);
+      setMonthlyReport(monthly);
+    } catch (error) {
+      console.error(error);
+      alert('Error al cargar los reportes de Casa de Paz');
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
   useEffect(() => {
-    fetchData(page, search);
+    if (authLoading) {
+      return;
+    }
+
+    const loadData = async () => {
+      await Promise.all([fetchData(page, search), fetchReports(reportMonth)]);
+    };
+
+    void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [authLoading, page]);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchReports(reportMonth);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, reportMonth]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +382,7 @@ export default function AsistenciasCasaPazPage() {
       direccionCasa: '',
       idPersonaACargo: '',
       idAnfitrion: '',
-      idLiderPrincipal: '',
+      idLiderPrincipal: isScopedCasaDePazLeader && currentLeaderOption ? currentLeaderOption.id : '',
     });
     setShowForm(true);
   };
@@ -168,7 +399,10 @@ export default function AsistenciasCasaPazPage() {
       direccionCasa: item.direccionCasa,
       idPersonaACargo: item.idPersonaACargo || '',
       idAnfitrion: item.idAnfitrion || '',
-      idLiderPrincipal: item.idLiderPrincipal || '',
+      idLiderPrincipal:
+        isScopedCasaDePazLeader && currentLeaderOption
+          ? currentLeaderOption.id
+          : item.idLiderPrincipal || '',
     });
     setShowForm(true);
   };
@@ -196,6 +430,11 @@ export default function AsistenciasCasaPazPage() {
       return;
     }
 
+    if (!(isScopedCasaDePazLeader && currentLeaderOption) && !form.idLiderPrincipal) {
+      alert('Debes seleccionar un líder principal');
+      return;
+    }
+
     const payload = {
       nombre: form.nombre,
       diaRegistro: form.diaRegistro,
@@ -204,7 +443,10 @@ export default function AsistenciasCasaPazPage() {
       direccionCasa: form.direccionCasa,
       idPersonaACargo: form.idPersonaACargo || null,
       idAnfitrion: form.idAnfitrion || null,
-      idLiderPrincipal: form.idLiderPrincipal || null,
+      idLiderPrincipal:
+        isScopedCasaDePazLeader && currentLeaderOption
+          ? currentLeaderOption.id
+          : form.idLiderPrincipal || null,
     };
 
     setSubmitting(true);
@@ -229,7 +471,7 @@ export default function AsistenciasCasaPazPage() {
     const nextEstado: EstadoAsistenciaCasaPaz =
       item.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
 
-    if (!confirm(`¿Confirmás cambiar el estado a ${nextEstado}?`)) return;
+    if (!confirm(`¿Confirmas cambiar el estado a ${nextEstado}?`)) return;
 
     try {
       await apiClient.patch(`/asistencias-casa-paz/${item.id}/estado`, {
@@ -260,20 +502,28 @@ export default function AsistenciasCasaPazPage() {
     router.push(`/admin/asistencias/casa-paz/${id}`);
   };
 
-  const formatPersonaName = (persona: PersonaOption | null | undefined) => {
-    if (!persona) return '—';
-    const fullName = `${persona.nombres || ''} ${persona.apellidos || ''}`.trim();
-    if (fullName) return fullName;
-    return persona.id;
-  };
-
-  const renderPersonaOptions = () => (
-    personas.map((persona) => (
-      <option key={persona.id} value={persona.id}>
-        {formatPersonaName(persona)}
-      </option>
-    ))
+  const personasById = useMemo(
+    () => new Map(personas.map((persona) => [persona.id, persona] as const)),
+    [personas],
   );
+
+  const selectedPersonInCharge = personasById.get(form.idPersonaACargo) ?? null;
+  const selectedHost = personasById.get(form.idAnfitrion) ?? null;
+  const selectedLeader = personasById.get(form.idLiderPrincipal) ?? currentLeaderOption ?? null;
+
+  const selectablePersonas = useMemo(() => {
+    const byId = new Map(personas.map((persona) => [persona.id, persona] as const));
+
+    [selectedPersonInCharge, selectedHost, selectedLeader, currentLeaderOption]
+      .filter((persona): persona is PersonaOption => Boolean(persona))
+      .forEach((persona) => {
+        byId.set(persona.id, persona);
+      });
+
+    return Array.from(byId.values()).sort((left, right) =>
+      buildPersonaName(left).localeCompare(buildPersonaName(right)),
+    );
+  }, [currentLeaderOption, personas, selectedHost, selectedLeader, selectedPersonInCharge]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -283,7 +533,7 @@ export default function AsistenciasCasaPazPage() {
             Casa de Paz
           </h1>
           <p className="text-slate-500 text-sm">
-            Gestiona asistencias recurrentes por red y dirección de casa.
+            Administra las Casas de Paz, sus responsables y los reportes según el alcance disponible.
           </p>
         </div>
 
@@ -293,6 +543,44 @@ export default function AsistenciasCasaPazPage() {
         >
           <Plus className="h-4 w-4" /> Nueva Asistencia
         </button>
+      </div>
+
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Ventana de reportes</h2>
+            <p className="text-sm text-slate-500">
+              Revisa el resumen actual según tu alcance y la tendencia mensual de asistencia.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <label className="text-sm text-slate-600">
+              <span className="mb-1 block font-medium">Mes</span>
+              <input
+                type="month"
+                value={reportMonth}
+                onChange={(e) => setReportMonth(e.target.value)}
+                className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              />
+            </label>
+          </div>
+        </div>
+
+        <CasaPazReportPanel
+          title="Resumen del alcance"
+          description="Todas las Casas de Paz disponibles dentro del alcance actual de la cuenta."
+          report={summaryReport}
+          loading={loadingReports}
+          candidateLimit={5}
+        />
+
+        <CasaPazReportPanel
+          title="Reporte mensual de asistencia"
+          description={`Asistencia, sesiones y seguimiento de encuentros para ${reportMonth}.`}
+          report={monthlyReport}
+          loading={loadingReports}
+          candidateLimit={5}
+        />
       </div>
 
       <form onSubmit={handleSearch} className="mb-5 flex flex-col gap-2 sm:flex-row">
@@ -536,51 +824,49 @@ export default function AsistenciasCasaPazPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Persona a cargo
-                  </label>
-                  <select
+                  <SearchablePersonaSelect
+                    label="Persona a cargo"
                     value={form.idPersonaACargo}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, idPersonaACargo: e.target.value }))
+                    onChange={(value) =>
+                      setForm((prev) => ({ ...prev, idPersonaACargo: value }))
                     }
-                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white"
-                  >
-                    <option value="">— Seleccionar —</option>
-                    {renderPersonaOptions()}
-                  </select>
+                    options={selectablePersonas}
+                    selectedOption={selectedPersonInCharge}
+                     placeholder="Escribe para buscar la persona a cargo"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Anfitrión
-                  </label>
-                  <select
+                  <SearchablePersonaSelect
+                    label="Anfitrión"
                     value={form.idAnfitrion}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, idAnfitrion: e.target.value }))
+                    onChange={(value) =>
+                      setForm((prev) => ({ ...prev, idAnfitrion: value }))
                     }
-                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white"
-                  >
-                    <option value="">— Seleccionar —</option>
-                    {renderPersonaOptions()}
-                  </select>
+                    options={selectablePersonas}
+                    selectedOption={selectedHost}
+                     placeholder="Escribe para buscar el anfitrión"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Líder principal
-                  </label>
-                  <select
+                  <SearchablePersonaSelect
+                    label="Líder principal"
                     value={form.idLiderPrincipal}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, idLiderPrincipal: e.target.value }))
+                    onChange={(value) =>
+                      setForm((prev) => ({ ...prev, idLiderPrincipal: value }))
                     }
-                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white"
-                  >
-                    <option value="">— Seleccionar —</option>
-                    {renderPersonaOptions()}
-                  </select>
+                    options={selectablePersonas}
+                    selectedOption={selectedLeader}
+                    disabled={isScopedCasaDePazLeader}
+                    required
+                     placeholder="Escribe para buscar el líder principal"
+                    lockedMessage={
+                      isScopedCasaDePazLeader
+                        ? `Bloqueado para ${buildPersonaName(selectedLeader || currentLeaderOption)}`
+                        : undefined
+                    }
+                  />
                 </div>
               </div>
             </div>

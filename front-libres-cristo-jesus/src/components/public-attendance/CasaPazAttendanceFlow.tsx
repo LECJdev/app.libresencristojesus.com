@@ -4,6 +4,7 @@ import { use, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   CheckCircle2,
   CircleAlert,
+  Coins,
   Loader2,
   Trash2,
   UserPlus,
@@ -61,6 +62,16 @@ interface RegistroResponse {
   persona: PersonaSummary;
   registroId: string;
   fechaRegistro: string;
+}
+
+interface PublicCasaPazSession {
+  fecha: string;
+  montoOfrenda: number;
+  exists: boolean;
+}
+
+interface CasaPazAttendance extends BaseAttendance {
+  currentSession?: PublicCasaPazSession;
 }
 
 interface Props {
@@ -216,6 +227,10 @@ export default function CasaPazAttendanceFlow({
   const [registrationForm, setRegistrationForm] = useState<RegistrationFormState>(
     EMPTY_REGISTRATION_FORM,
   );
+  const [showOfferingForm, setShowOfferingForm] = useState(false);
+  const [offeringAmount, setOfferingAmount] = useState('');
+  const [savingOffering, setSavingOffering] = useState(false);
+  const [offeringMessage, setOfferingMessage] = useState('');
 
   const displayName = useMemo(() => fullName(currentResult?.persona || null), [currentResult]);
 
@@ -224,7 +239,7 @@ export default function CasaPazAttendanceFlow({
 
     const loadInitialData = async () => {
       try {
-        const { data } = await apiClient.get<BaseAttendance>(
+        const { data } = await apiClient.get<CasaPazAttendance>(
           buildEndpoint(config.attendanceEndpoint, resolvedParams.token),
         );
 
@@ -233,6 +248,11 @@ export default function CasaPazAttendanceFlow({
         }
 
         setAttendance(data);
+        setOfferingAmount(
+          data.currentSession?.exists || (data.currentSession?.montoOfrenda ?? 0) > 0
+            ? String(data.currentSession?.montoOfrenda ?? 0)
+            : '',
+        );
       } catch (error) {
         console.error(error);
         if (!cancelled) {
@@ -251,7 +271,11 @@ export default function CasaPazAttendanceFlow({
 
   useEffect(() => {
     if (attendance && isLoaded && step === 'LOADING') {
-      setStep('ASK_DOCUMENT');
+      const timeoutId = window.setTimeout(() => {
+        setStep('ASK_DOCUMENT');
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
   }, [attendance, isLoaded, step]);
 
@@ -303,7 +327,7 @@ export default function CasaPazAttendanceFlow({
     const safeDocumento = sanitizeDocumentoInput(rawDocumento);
 
     if (!safeDocumento) {
-      setErrorMsg('Documento inválido. Verificá el formato.');
+      setErrorMsg('Documento inválido. Verifica el formato.');
       return;
     }
 
@@ -354,12 +378,12 @@ export default function CasaPazAttendanceFlow({
     const { nombres, apellidos } = splitNombreCompleto(nombreCompleto);
 
     if (!safeDocumento) {
-      setErrorMsg('Documento inválido. Verificá el formato.');
+      setErrorMsg('Documento inválido. Verifica el formato.');
       return;
     }
 
     if (!nombreCompleto || !celular) {
-      setErrorMsg('Completá nombre, documento y celular.');
+      setErrorMsg('Completa nombre, documento y celular.');
       return;
     }
 
@@ -393,11 +417,45 @@ export default function CasaPazAttendanceFlow({
     }
   };
 
+  const handleSaveOffering = async () => {
+    if (!config.offeringEndpoint) {
+      return;
+    }
+
+    const normalizedValue = offeringAmount.trim() === '' ? 0 : Number(offeringAmount);
+
+    if (Number.isNaN(normalizedValue) || normalizedValue < 0) {
+      setOfferingMessage('Ingresa un valor de ofrenda válido que no sea negativo.');
+      return;
+    }
+
+    setSavingOffering(true);
+    setOfferingMessage('');
+
+    try {
+      const { data } = await apiClient.put<PublicCasaPazSession>(
+        buildEndpoint(config.offeringEndpoint, resolvedParams.token),
+        { montoOfrenda: normalizedValue },
+      );
+
+      setAttendance((current) =>
+        current ? { ...current, currentSession: data } : current,
+      );
+      setOfferingAmount(String(data.montoOfrenda));
+      setOfferingMessage(`Ofrenda guardada para ${data.fecha}.`);
+    } catch (error) {
+      console.error(error);
+      setOfferingMessage(getErrorMessage(error, 'No es posible guardar la ofrenda en este momento.'));
+    } finally {
+      setSavingOffering(false);
+    }
+  };
+
   if (step === 'LOADING' || loadingAction) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 text-blue-600 animate-spin" />
-        <p className="mt-4 text-slate-600">Procesando la asistencia de casa de paz...</p>
+        <p className="mt-4 text-slate-600">Procesando la asistencia de Casa de Paz...</p>
       </div>
     );
   }
@@ -594,6 +652,57 @@ export default function CasaPazAttendanceFlow({
             Registrar asistencia
           </button>
         </form>
+
+        {config.offeringEndpoint ? (
+          <div className="space-y-3 border-t border-slate-200 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setShowOfferingForm((current) => !current);
+                setOfferingMessage('');
+              }}
+              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-700"
+            >
+              <Coins className="h-4 w-4" />
+              Ofrenda
+            </button>
+
+            {showOfferingForm ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                  <label className="text-sm text-slate-700">
+                     <span className="mb-1 block font-medium">Valor de la ofrenda</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={offeringAmount}
+                      onChange={(event) => setOfferingAmount(event.target.value)}
+                      className={fieldClassName}
+                      placeholder="0"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveOffering()}
+                    disabled={savingOffering}
+                    className="min-h-11 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    {savingOffering ? 'Guardando...' : 'Guardar ofrenda'}
+                  </button>
+                </div>
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Esto guarda la ofrenda para la fecha actual de Casa de Paz.
+                </p>
+
+                {offeringMessage ? (
+                  <p className="mt-3 text-sm text-slate-600">{offeringMessage}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {people.length > 0 ? (
           <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

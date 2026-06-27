@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Rol } from '../../common/enums/rol.enum';
+import { getPrimaryRole, normalizeRoles } from '../../common/utils/role.util';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -15,7 +16,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; rol: Rol }) {
-    return { id: payload.sub, rol: payload.rol };
+  async validate(payload: { sub: string; rol?: Rol; roles?: Rol[] }) {
+    const roles = normalizeRoles(payload);
+    return {
+      id: payload.sub,
+      rol: getPrimaryRole({ roles, rol: payload.rol }),
+      roles,
+    };
   }
 }

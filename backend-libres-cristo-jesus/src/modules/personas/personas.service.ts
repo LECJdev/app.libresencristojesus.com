@@ -17,6 +17,7 @@ import {
   sanitizeOptionalText,
 } from '../../common/utils/input-security.util';
 import { Red } from '../redes/red.entity';
+import { getPrimaryRole, normalizeRoles } from '../../common/utils/role.util';
 
 export class CreateUserDto {
   nombres: string;
@@ -31,6 +32,10 @@ export class PromotePersonalAdministrativoDto {
   personaId: string;
 }
 
+export class AssignCasaDePazLeaderDto {
+  personaId: string;
+}
+
 @Injectable()
 export class PersonasService {
   constructor(
@@ -42,7 +47,9 @@ export class PersonasService {
   ) {}
 
   findAll(): Promise<Persona[]> {
-    return this.personaRepository.find({ relations: ['red', 'red.sede', 'invitadoPor'] });
+    return this.personaRepository.find({
+      relations: ['red', 'red.sede', 'invitadoPor'],
+    });
   }
 
   findOne(id: string): Promise<Persona | null> {
@@ -155,10 +162,13 @@ export class PersonasService {
       throw new BadRequestException('Ya existe un usuario con ese celular');
     }
 
-    const needsPassword = dto.rol === Rol.ADMIN || dto.rol === Rol.SUPER_ADMIN;
+    const needsPassword =
+      dto.rol === Rol.ADMIN ||
+      dto.rol === Rol.SUPER_ADMIN ||
+      dto.rol === Rol.LIDER_CASA_DE_PAZ;
     if (needsPassword && !dto.password) {
       throw new BadRequestException(
-        'Los roles ADMIN y SUPER_ADMIN requieren contraseña',
+        'Los roles ADMIN, SUPER_ADMIN y LIDER_CASA_DE_PAZ requieren contraseña',
       );
     }
 
@@ -173,6 +183,7 @@ export class PersonasService {
       celular: dto.celular,
       documento: dto.documento ?? null,
       rol: dto.rol,
+      roles: normalizeRoles({ rol: dto.rol }),
       password: hashedPassword ?? null,
     });
 
@@ -219,10 +230,61 @@ export class PersonasService {
 
     await this.personaRepository.update(persona.id, {
       rol: Rol.PERSONAL_ADMINISTRATIVO,
+      roles: normalizeRoles({ rol: Rol.PERSONAL_ADMINISTRATIVO }),
       password: hashedPassword,
       documento,
       correo,
     });
+
+    const updated = await this.findOneOrThrow(persona.id);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _, ...result } = updated;
+    return result as Omit<Persona, 'password'>;
+  }
+
+  async assignCasaDePazLeader(
+    dto: AssignCasaDePazLeaderDto,
+  ): Promise<Omit<Persona, 'password'>> {
+    const personaId = sanitizeEntityIdOrThrow(dto.personaId, 'ID de persona');
+    const persona = await this.findOneOrThrow(personaId);
+
+    if (!persona.documento) {
+      throw new BadRequestException(
+        'La persona debe tener documento registrado para habilitar el acceso inicial',
+      );
+    }
+
+    if (!persona.correo) {
+      throw new BadRequestException(
+        'La persona debe tener correo registrado para habilitar el acceso administrativo',
+      );
+    }
+
+    const documento = sanitizeDocumentoOrThrow(persona.documento);
+    const correo = sanitizeOptionalEmail(persona.correo);
+
+    if (!correo) {
+      throw new BadRequestException(
+        'La persona debe tener un correo válido para habilitar el acceso administrativo',
+      );
+    }
+
+    const roles = normalizeRoles({
+      roles: [...(persona.roles ?? []), persona.rol, Rol.LIDER_CASA_DE_PAZ],
+    });
+
+    const updatePayload: Partial<Persona> = {
+      rol: getPrimaryRole({ roles, rol: persona.rol }),
+      roles,
+      documento,
+      correo,
+    };
+
+    if (!persona.password) {
+      updatePayload.password = await bcrypt.hash(documento, 10);
+    }
+
+    await this.personaRepository.update(persona.id, updatePayload);
 
     const updated = await this.findOneOrThrow(persona.id);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -252,7 +314,9 @@ export class PersonasService {
     return safeId;
   }
 
-  private extractRequestedRedId(data: Partial<Persona>): string | null | undefined {
+  private extractRequestedRedId(
+    data: Partial<Persona>,
+  ): string | null | undefined {
     if (data.idRed !== undefined) {
       return data.idRed;
     }

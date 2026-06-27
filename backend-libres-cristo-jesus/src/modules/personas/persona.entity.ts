@@ -3,6 +3,7 @@ import {
   PrimaryColumn,
   Column,
   BeforeInsert,
+  BeforeUpdate,
   OneToMany,
   ManyToOne,
   JoinColumn,
@@ -20,6 +21,7 @@ import { AsistenciaCasaPaz } from '../asistencias/asistencia-casa-paz.entity';
 import { AsistenciaNuevos } from '../asistencias/asistencia-nuevos.entity';
 import { AsistenciaDicipulado } from '../asistencias/asistencia-dicipulado.entity';
 import { AsistenciaEvento } from '../asistencias/asistencia-evento.entity';
+import { getPrimaryRole, normalizeRoles } from '../../common/utils/role.util';
 
 @Entity('persona')
 export class Persona extends BaseEntity {
@@ -58,6 +60,9 @@ export class Persona extends BaseEntity {
 
   @Column({ type: 'enum', enum: Rol, default: Rol.INTEGRANTE })
   rol: Rol;
+
+  @Column({ type: 'enum', enum: Rol, array: true, default: [Rol.INTEGRANTE] })
+  roles: Rol[];
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   password: string | null;
@@ -117,5 +122,17 @@ export class Persona extends BaseEntity {
     if (!this.id) {
       this.id = generateCustomId('id_persona_');
     }
+
+    this.syncRoles();
+  }
+
+  @BeforeUpdate()
+  syncRolesBeforeUpdate() {
+    this.syncRoles();
+  }
+
+  private syncRoles() {
+    this.roles = normalizeRoles(this);
+    this.rol = getPrimaryRole({ roles: this.roles, rol: this.rol });
   }
 }

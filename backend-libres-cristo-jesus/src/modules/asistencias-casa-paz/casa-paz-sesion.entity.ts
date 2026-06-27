@@ -13,9 +13,13 @@ import { generateCustomId } from '../../common/utils/id-generator.util';
 import { AsistenciaCasaPazQr } from './asistencia-casa-paz-qr.entity';
 
 @Entity('casa_paz_sesion')
-@Index('UQ_casa_paz_sesion_asistencia_fecha', ['idAsistenciaCasaPazQr', 'fecha'], {
-  unique: true,
-})
+@Index(
+  'UQ_casa_paz_sesion_asistencia_fecha',
+  ['idAsistenciaCasaPazQr', 'fecha'],
+  {
+    unique: true,
+  },
+)
 @Index('IDX_casa_paz_sesion_asistencia', ['idAsistenciaCasaPazQr'])
 @Index('IDX_casa_paz_sesion_fecha', ['fecha'])
 @Check('CHK_casa_paz_sesion_monto_ofrenda_non_negative', 'monto_ofrenda >= 0')
@@ -43,7 +47,10 @@ export class CasaPazSesion extends BaseEntity {
   })
   montoOfrenda: number;
 
-  @ManyToOne(() => AsistenciaCasaPazQr, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => AsistenciaCasaPazQr, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'id_asistencia_casa_paz_qr' })
   asistencia: AsistenciaCasaPazQr;
 

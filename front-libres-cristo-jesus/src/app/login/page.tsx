@@ -3,14 +3,16 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { UserIcon, LockIcon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, LockIcon, UserIcon } from 'lucide-react';
 import BrandLogo from '@/components/BrandLogo';
+import { getDefaultAdminPath } from '@/lib/admin-sections';
 
 export default function LoginPage() {
   const { loginAdmin } = useAuth();
   const router = useRouter();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +24,7 @@ export default function LoginPage() {
     const res = await loginAdmin(identifier, password);
 
     if (res.success) {
-      router.push('/admin');
+      router.push(getDefaultAdminPath({ roles: res.roles, rol: res.rol }) ?? '/admin');
     } else {
       setError(res.message ?? 'Error desconocido');
     }
@@ -50,7 +52,7 @@ export default function LoginPage() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="identifier" className="block text-sm font-medium text-slate-300">
-                Usuario
+                Email
               </label>
               <div className="mt-1 relative rounded-lg shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -63,9 +65,13 @@ export default function LoginPage() {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="bg-slate-900/50 border border-slate-600 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent block w-full pl-10 sm:text-sm rounded-lg py-3"
-                  placeholder="Ingresá tu correo, celular o usuario"
+                  placeholder="Enter your email"
+                  autoComplete="username"
                 />
               </div>
+              <p className="mt-2 text-xs text-slate-400">
+                Personas must sign in with their email. Only the legacy admin can use the username useroot.
+              </p>
             </div>
 
             <div>
@@ -78,16 +84,30 @@ export default function LoginPage() {
                 </div>
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-slate-900/50 border border-slate-600 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent block w-full pl-10 sm:text-sm rounded-lg py-3"
+                  className="bg-slate-900/50 border border-slate-600 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent block w-full pl-10 pr-11 sm:text-sm rounded-lg py-3"
                   placeholder="••••••••"
+                  autoComplete="current-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 transition-colors hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800 rounded-r-lg"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? (
+                    <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
               </div>
               <p className="mt-2 text-xs text-slate-400">
-                Ingresá tu correo, celular o usuario y tu contraseña. Si sos personal administrativo promovido, tu contraseña inicial es tu documento.
+                If your access was assigned from an existing persona, your initial password is your document or identification number.
               </p>
             </div>
 

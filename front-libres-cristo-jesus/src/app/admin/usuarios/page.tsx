@@ -15,11 +15,13 @@ interface Persona {
   correo: string | null;
   documento: string | null;
   rol: UserRole;
+  roles?: UserRole[];
 }
 
 export default function AdminUsuarios() {
-  const { isSuperAdmin, loading } = useAuth();
+  const { hasAdminSectionAccess, loading } = useAuth();
   const router = useRouter();
+  const canAccessUserManagement = hasAdminSectionAccess('users');
 
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,15 +46,19 @@ export default function AdminUsuarios() {
   };
 
   useEffect(() => {
-    if (!loading && !isSuperAdmin) {
+    if (!loading && !canAccessUserManagement) {
       router.push('/admin');
       return;
     }
 
-    if (!loading && isSuperAdmin) {
-      fetchPersonas();
+    if (!loading && canAccessUserManagement) {
+      const timeoutId = window.setTimeout(() => {
+        void fetchPersonas();
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
-  }, [loading, isSuperAdmin, router]);
+  }, [canAccessUserManagement, loading, router]);
 
   const eligiblePersonas = useMemo(
     () =>
@@ -122,7 +128,7 @@ export default function AdminUsuarios() {
     }
   };
 
-  if (loading || !isSuperAdmin) {
+  if (loading || !canAccessUserManagement) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600"></div>

@@ -946,79 +946,94 @@ export default function DominicalAttendanceFlow({
               </div>
 
               {currentResult.missingFields.includes('idRed') ? (
-                <select
-                  value={followUpForm?.idRed || ''}
-                  onChange={(e) => updateFollowUpField('idRed', e.target.value)}
-                  className={fieldClassName}
-                >
-                  <option value="">Seleccioná una red</option>
-                  {redes.map((red) => (
-                    <option key={red.id} value={red.id}>
-                      {formatRedLabel(red)}
-                    </option>
-                  ))}
-                </select>
+                <label className="block space-y-1.5 text-sm font-medium text-slate-700">
+                  <span>Red</span>
+                  <select
+                    value={followUpForm?.idRed || ''}
+                    onChange={(e) => updateFollowUpField('idRed', e.target.value)}
+                    className={fieldClassName}
+                  >
+                    <option value="">Seleccioná una red</option>
+                    {redes.map((red) => (
+                      <option key={red.id} value={red.id}>
+                        {formatRedLabel(red)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : null}
 
               {currentResult.missingFields.includes('fechaNacimiento') ? (
-                <input
-                  type="date"
-                  value={followUpForm?.fechaNacimiento || ''}
-                  onChange={(e) => updateFollowUpField('fechaNacimiento', e.target.value)}
-                  className={fieldClassName}
-                />
+                <label className="block space-y-1.5 text-sm font-medium text-slate-700">
+                  <span>Fecha de nacimiento</span>
+                  <input
+                    type="date"
+                    value={followUpForm?.fechaNacimiento || ''}
+                    onChange={(e) => updateFollowUpField('fechaNacimiento', e.target.value)}
+                    className={fieldClassName}
+                  />
+                </label>
               ) : null}
 
               {currentResult.missingFields.includes('celular') ? (
-                <input
-                  type="text"
-                  placeholder="Celular"
-                  value={followUpForm?.celular || ''}
-                  onChange={(e) => updateFollowUpField('celular', sanitizeCelularInput(e.target.value))}
-                  className={fieldClassName}
-                />
+                <label className="block space-y-1.5 text-sm font-medium text-slate-700">
+                  <span>Celular</span>
+                  <input
+                    type="text"
+                    placeholder="Ingresá el celular"
+                    value={followUpForm?.celular || ''}
+                    onChange={(e) => updateFollowUpField('celular', sanitizeCelularInput(e.target.value))}
+                    className={fieldClassName}
+                  />
+                </label>
               ) : null}
 
               {currentResult.missingFields.includes('departamento') ? (
-                <select
-                  value={followUpForm?.departamento || ''}
-                  onChange={(e) => handleFollowUpDepartmentChange(e.target.value)}
-                  disabled={isLoadingDepartments}
-                  className={fieldClassName}
-                >
-                  <option value="">
-                    {isLoadingDepartments ? 'Cargando departamentos...' : 'Seleccioná un departamento'}
-                  </option>
-                  {departments.map((department) => (
-                    <option key={department.id} value={department.name}>
-                      {department.name}
+                <label className="block space-y-1.5 text-sm font-medium text-slate-700">
+                  <span>Departamento</span>
+                  <select
+                    value={followUpForm?.departamento || ''}
+                    onChange={(e) => handleFollowUpDepartmentChange(e.target.value)}
+                    disabled={isLoadingDepartments}
+                    className={fieldClassName}
+                  >
+                    <option value="">
+                      {isLoadingDepartments ? 'Cargando departamentos...' : 'Seleccioná un departamento'}
                     </option>
-                  ))}
-                </select>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.name}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : null}
 
               {currentResult.missingFields.includes('ciudad') ? (
-                <select
-                  value={followUpForm?.ciudad || ''}
-                  onChange={(e) =>
-                    updateFollowUpField('ciudad', sanitizeLocationInput(e.target.value))
-                  }
-                  disabled={!followUpForm?.departamento || isLoadingCities}
-                  className={fieldClassName}
-                >
-                  <option value="">
-                    {!followUpForm?.departamento
-                      ? 'Primero seleccioná un departamento'
-                      : isLoadingCities
-                        ? 'Cargando ciudades...'
-                        : 'Seleccioná una ciudad o municipio'}
-                  </option>
-                  {followUpCurrentCities.map((city) => (
-                    <option key={city.id} value={city.name}>
-                      {city.name}
+                <label className="block space-y-1.5 text-sm font-medium text-slate-700">
+                  <span>Ciudad / Municipio</span>
+                  <select
+                    value={followUpForm?.ciudad || ''}
+                    onChange={(e) =>
+                      updateFollowUpField('ciudad', sanitizeLocationInput(e.target.value))
+                    }
+                    disabled={!followUpForm?.departamento || isLoadingCities}
+                    className={fieldClassName}
+                  >
+                    <option value="">
+                      {!followUpForm?.departamento
+                        ? 'Primero seleccioná un departamento'
+                        : isLoadingCities
+                          ? 'Cargando ciudades...'
+                          : 'Seleccioná una ciudad o municipio'}
                     </option>
-                  ))}
-                </select>
+                    {followUpCurrentCities.map((city) => (
+                      <option key={city.id} value={city.name}>
+                        {city.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : null}
 
               {locationError ? <p className="text-sm text-amber-600">{locationError}</p> : null}

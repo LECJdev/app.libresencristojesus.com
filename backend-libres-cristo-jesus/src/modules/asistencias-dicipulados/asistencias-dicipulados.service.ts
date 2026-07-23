@@ -470,7 +470,10 @@ export class AsistenciasDicipuladosService {
     });
 
     if (existente) {
-      const profileCompletion = this.buildProfileCompletion(persona, existente.esNuevo);
+      const profileCompletion = this.buildProfileCompletion(
+        persona,
+        existente.esNuevo,
+      );
       return {
         alreadyRegistered: true,
         esNuevo: existente.esNuevo,
@@ -520,7 +523,8 @@ export class AsistenciasDicipuladosService {
             alreadyRegistered: true,
             esNuevo: duplicated.esNuevo,
             needsProfileCompletion:
-              profileCompletion.needsRed || profileCompletion.needsFechaNacimiento,
+              profileCompletion.needsRed ||
+              profileCompletion.needsFechaNacimiento,
             profileCompletion,
             persona,
             registroId: duplicated.id,
@@ -539,7 +543,10 @@ export class AsistenciasDicipuladosService {
   ): Promise<Persona> {
     const safeToken = sanitizeTokenOrThrow(token);
     const asistencia = await this.getPublicByToken(safeToken);
-    const personaId = sanitizeEntityIdOrThrow(payload.personaId, 'ID de persona');
+    const personaId = sanitizeEntityIdOrThrow(
+      payload.personaId,
+      'ID de persona',
+    );
     const documento = sanitizeDocumentoOrThrow(payload.documento);
 
     const persona = await this.personaRepo.findOne({
@@ -548,7 +555,9 @@ export class AsistenciasDicipuladosService {
     });
 
     if (!persona) {
-      throw new NotFoundException('Persona no encontrada para completar el perfil');
+      throw new NotFoundException(
+        'Persona no encontrada para completar el perfil',
+      );
     }
 
     const registro = await this.registroDicipuladoRepo.findOneBy({
@@ -572,7 +581,9 @@ export class AsistenciasDicipuladosService {
     }
 
     if (!persona.fechaNacimiento && payload.fechaNacimiento) {
-      updateData.fechaNacimiento = this.normalizeBirthDate(payload.fechaNacimiento);
+      updateData.fechaNacimiento = this.normalizeBirthDate(
+        payload.fechaNacimiento,
+      );
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -587,7 +598,9 @@ export class AsistenciasDicipuladosService {
     });
 
     if (!updated) {
-      throw new NotFoundException('Persona no encontrada después de completar el perfil');
+      throw new NotFoundException(
+        'Persona no encontrada después de completar el perfil',
+      );
     }
 
     return updated;
@@ -679,7 +692,9 @@ export class AsistenciasDicipuladosService {
     const trimmed = value.trim();
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      throw new BadRequestException('La fecha de nacimiento no tiene un formato válido');
+      throw new BadRequestException(
+        'La fecha de nacimiento no tiene un formato válido',
+      );
     }
 
     const parsed = new Date(`${trimmed}T00:00:00.000Z`);

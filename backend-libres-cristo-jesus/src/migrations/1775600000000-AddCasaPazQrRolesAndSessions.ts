@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddCasaPazQrRolesAndSessions1775600000000
-  implements MigrationInterface
-{
+export class AddCasaPazQrRolesAndSessions1775600000000 implements MigrationInterface {
   name = 'AddCasaPazQrRolesAndSessions1775600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -56,9 +54,7 @@ export class AddCasaPazQrRolesAndSessions1775600000000
     await queryRunner.query(
       `ALTER TABLE "asistencia_casa_paz_qr" DROP CONSTRAINT "FK_asistencia_casa_paz_qr_persona_a_cargo"`,
     );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_casa_paz_sesion_fecha"`,
-    );
+    await queryRunner.query(`DROP INDEX "public"."IDX_casa_paz_sesion_fecha"`);
     await queryRunner.query(
       `DROP INDEX "public"."IDX_casa_paz_sesion_asistencia"`,
     );

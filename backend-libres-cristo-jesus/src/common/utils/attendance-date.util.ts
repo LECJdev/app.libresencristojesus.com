@@ -89,9 +89,9 @@ export function getBogotaDateString(date: Date = new Date()): string {
 }
 
 export function getBogotaDayOfWeek(date: Date = new Date()): number {
-  const weekday = BOGOTA_WEEKDAY_FORMATTER
-    .formatToParts(date)
-    .find((part) => part.type === 'weekday')?.value;
+  const weekday = BOGOTA_WEEKDAY_FORMATTER.formatToParts(date).find(
+    (part) => part.type === 'weekday',
+  )?.value;
 
   if (!weekday || !(weekday in WEEKDAY_TO_DAY_INDEX)) {
     throw new Error('Could not format Bogota weekday');

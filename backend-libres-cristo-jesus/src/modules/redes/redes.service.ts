@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Red } from './red.entity';
@@ -29,7 +33,9 @@ export class RedesService {
 
   async create(data: Partial<Red>): Promise<Red> {
     const entity = await this.buildEntity(data);
-    const saved = await this.redRepository.save(this.redRepository.create(entity));
+    const saved = await this.redRepository.save(
+      this.redRepository.create(entity),
+    );
     return this.findOneOrThrow(saved.id);
   }
 
@@ -60,7 +66,9 @@ export class RedesService {
     fallback?: Red,
   ): Promise<Partial<Red>> {
     const requestedSedeId =
-      data.idSede ?? (data.sede === null ? null : data.sede?.id) ?? fallback?.idSede;
+      data.idSede ??
+      (data.sede === null ? null : data.sede?.id) ??
+      fallback?.idSede;
 
     if (!requestedSedeId) {
       throw new BadRequestException('Debes seleccionar una sede para la red');
@@ -81,11 +89,11 @@ export class RedesService {
               'Nombre de la red',
               150,
             )
-          : fallback?.nombre ?? null,
+          : (fallback?.nombre ?? null),
       detalles:
         data.detalles !== undefined
           ? sanitizeOptionalText(data.detalles ?? undefined, 1000)
-          : fallback?.detalles ?? null,
+          : (fallback?.detalles ?? null),
       idSede,
     };
   }

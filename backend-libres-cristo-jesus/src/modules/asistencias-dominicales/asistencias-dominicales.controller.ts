@@ -13,6 +13,7 @@ import { AsistenciasDominicalesService } from './asistencias-dominicales.service
 import type {
   CompletePublicProfileDto,
   CreateAsistenciaDominicalDto,
+  DominicalAttendanceExportResponse,
   ListAsistenciasDominicalesQuery,
   ListRegistrosDominicalesQuery,
   RegistrarAsistenciaPublicaDto,
@@ -21,6 +22,7 @@ import type {
 import { EstadoAsistenciaDominical } from '../../common/enums/estado-asistencia-dominical.enum';
 import {
   AdminDeleteAccess,
+  AdminReadAccess,
   AdminWriteAccess,
 } from '../auth/admin-access.decorator';
 
@@ -59,7 +61,10 @@ export class AsistenciasDominicalesController {
     @Param('token') token: string,
     @Body() payload: CompletePublicProfileDto,
   ): Promise<unknown> {
-    return this.asistenciasDominicalesService.completePublicProfile(token, payload);
+    return this.asistenciasDominicalesService.completePublicProfile(
+      token,
+      payload,
+    );
   }
 
   @Get(':id')
@@ -102,10 +107,17 @@ export class AsistenciasDominicalesController {
     );
   }
 
-  @Get(':id/registros/fechas')
-  findFechasDisponiblesByAsistencia(
+  @AdminReadAccess()
+  @Get(':id/registros/export')
+  exportRegistros(
     @Param('id') id: string,
-  ): Promise<unknown> {
+    @Query('fecha') fecha?: string,
+  ): Promise<DominicalAttendanceExportResponse> {
+    return this.asistenciasDominicalesService.exportRegistros(id, fecha);
+  }
+
+  @Get(':id/registros/fechas')
+  findFechasDisponiblesByAsistencia(@Param('id') id: string): Promise<unknown> {
     return this.asistenciasDominicalesService.findFechasDisponiblesByAsistencia(
       id,
     );
@@ -116,7 +128,15 @@ export class AsistenciasDominicalesController {
     @Param('id') id: string,
     @Query('fecha') fecha: string,
   ): Promise<unknown> {
-    return this.asistenciasDominicalesService.findResumenByAsistencia(id, fecha);
+    return this.asistenciasDominicalesService.findResumenByAsistencia(
+      id,
+      fecha,
+    );
+  }
+
+  @Get(':id/registros/resumen-por-mes')
+  findResumenPorMesByAsistencia(@Param('id') id: string): Promise<unknown> {
+    return this.asistenciasDominicalesService.findResumenPorMesByAsistencia(id);
   }
 
   @Get(':id/registros/resumen-por-red')

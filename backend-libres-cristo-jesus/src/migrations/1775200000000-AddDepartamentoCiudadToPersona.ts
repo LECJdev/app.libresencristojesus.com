@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddDepartamentoCiudadToPersona1775200000000
-  implements MigrationInterface
-{
+export class AddDepartamentoCiudadToPersona1775200000000 implements MigrationInterface {
   name = 'AddDepartamentoCiudadToPersona1775200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

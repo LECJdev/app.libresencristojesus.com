@@ -26,7 +26,10 @@ describe('AuthController', () => {
   it('passes identifier to auth service', async () => {
     authService.loginAdmin.mockResolvedValue({ success: true });
 
-    await controller.loginAdmin({ identifier: '3001234567', password: 'secret' });
+    await controller.loginAdmin({
+      identifier: '3001234567',
+      password: 'secret',
+    });
 
     expect(authService.loginAdmin).toHaveBeenCalledWith('3001234567', 'secret');
   });

@@ -36,6 +36,102 @@ export class AssignCasaDePazLeaderDto {
   personaId: string;
 }
 
+export interface PersonaExportRowDto {
+  id: string;
+  nombres: string | null;
+  apellidos: string | null;
+  edad: number | null;
+  celular: string | null;
+  tipoDocumento: string | null;
+  documento: string | null;
+  genero: string | null;
+  direccion: string | null;
+  correo: string | null;
+  encuentro: boolean | null;
+  barrio: string | null;
+  departamento: string | null;
+  ciudad: string | null;
+  fechaNacimiento: string | null;
+  idRed: string | null;
+  redNombre: string | null;
+  invitadoPorId: string | null;
+  invitadoPorNombre: string | null;
+  fechaCreacion: Date | string | null;
+  fechaModificacion: Date | string | null;
+}
+
+export interface PersonaReadDto {
+  id: string;
+  nombres: string | null;
+  apellidos: string | null;
+  edad: number | null;
+  celular: string | null;
+  tipoDocumento: string | null;
+  documento: string | null;
+  genero: string | null;
+  direccion: string | null;
+  correo: string | null;
+  encuentro: boolean | null;
+  rol: Rol;
+  roles: Rol[];
+  barrio: string | null;
+  departamento: string | null;
+  ciudad: string | null;
+  fechaNacimiento: string | null;
+  idRed: string | null;
+  red: {
+    id: string;
+    nombre: string | null;
+    detalles: string | null;
+    idSede: string | null;
+    sede: {
+      id: string;
+      nombre: string | null;
+      direccion: string | null;
+    } | null;
+  } | null;
+  invitadoPor: {
+    id: string;
+    nombres: string | null;
+    apellidos: string | null;
+  } | null;
+  fechaCreacion: Date | string | null;
+  fechaModificacion: Date | string | null;
+}
+
+interface PersonaReadRow {
+  id: string;
+  nombres: string | null;
+  apellidos: string | null;
+  edad: number | null;
+  celular: string | null;
+  tipoDocumento: string | null;
+  documento: string | null;
+  genero: string | null;
+  direccion: string | null;
+  correo: string | null;
+  encuentro: boolean | null;
+  rol: Rol | null;
+  roles: Rol[] | null;
+  barrio: string | null;
+  departamento: string | null;
+  ciudad: string | null;
+  fechaNacimiento: string | null;
+  idRed: string | null;
+  redId: string | null;
+  redNombre: string | null;
+  redDetalles: string | null;
+  redIdSede: string | null;
+  sedeId: string | null;
+  sedeNombre: string | null;
+  sedeDireccion: string | null;
+  invitadoPorId: string | null;
+  invitadoPorNombres: string | null;
+  invitadoPorApellidos: string | null;
+  fechaCreacion: Date | string | null;
+  fechaModificacion: Date | string | null;
+}
+
 @Injectable()
 export class PersonasService {
   constructor(
@@ -46,10 +142,89 @@ export class PersonasService {
     private readonly redRepository: Repository<Red>,
   ) {}
 
-  findAll(): Promise<Persona[]> {
-    return this.personaRepository.find({
-      relations: ['red', 'red.sede', 'invitadoPor'],
-    });
+  async findAll(): Promise<PersonaReadDto[]> {
+    const rows = await this.createPersonaReadQuery()
+      .orderBy('persona.apellidos', 'ASC')
+      .addOrderBy('persona.nombres', 'ASC')
+      .addOrderBy('persona.id', 'ASC')
+      .getRawMany<PersonaReadRow>();
+
+    return rows.map((row) => this.mapPersonaReadRow(row));
+  }
+
+  async findExportRows(): Promise<PersonaExportRowDto[]> {
+    const rawRows = await this.personaRepository
+      .createQueryBuilder('persona')
+      .leftJoin('persona.red', 'red')
+      .leftJoin('persona.invitadoPor', 'invitador')
+      .select('persona.id', 'id')
+      .addSelect('persona.nombres', 'nombres')
+      .addSelect('persona.apellidos', 'apellidos')
+      .addSelect('persona.edad', 'edad')
+      .addSelect('persona.celular', 'celular')
+      .addSelect('persona.tipoDocumento', 'tipoDocumento')
+      .addSelect('persona.documento', 'documento')
+      .addSelect('persona.genero', 'genero')
+      .addSelect('persona.direccion', 'direccion')
+      .addSelect('persona.correo', 'correo')
+      .addSelect('persona.encuentro', 'encuentro')
+      .addSelect('persona.barrio', 'barrio')
+      .addSelect('persona.departamento', 'departamento')
+      .addSelect('persona.ciudad', 'ciudad')
+      .addSelect('persona.fechaNacimiento', 'fechaNacimiento')
+      .addSelect('persona.idRed', 'idRed')
+      .addSelect('red.nombre', 'redNombre')
+      .addSelect('invitador.id', 'invitadoPorId')
+      .addSelect(
+        `NULLIF(TRIM(CONCAT_WS(' ', invitador.nombres, invitador.apellidos)), '')`,
+        'invitadoPorNombre',
+      )
+      .addSelect('persona.fechaCreacion', 'fechaCreacion')
+      .addSelect('persona.fechaModificacion', 'fechaModificacion')
+      .orderBy('persona.apellidos', 'ASC')
+      .addOrderBy('persona.nombres', 'ASC')
+      .addOrderBy('persona.id', 'ASC')
+      .getRawMany<PersonaExportRowDto>();
+
+    return rawRows.map((row) => ({
+      id: row.id,
+      nombres: row.nombres,
+      apellidos: row.apellidos,
+      edad: row.edad,
+      celular: row.celular,
+      tipoDocumento: row.tipoDocumento,
+      documento: row.documento,
+      genero: row.genero,
+      direccion: row.direccion,
+      correo: row.correo,
+      encuentro: row.encuentro,
+      barrio: row.barrio,
+      departamento: row.departamento,
+      ciudad: row.ciudad,
+      fechaNacimiento: row.fechaNacimiento,
+      idRed: row.idRed,
+      redNombre: row.redNombre,
+      invitadoPorId: row.invitadoPorId,
+      invitadoPorNombre: row.invitadoPorNombre,
+      fechaCreacion: row.fechaCreacion,
+      fechaModificacion: row.fechaModificacion,
+    }));
+  }
+
+  async findOneForRead(id: string): Promise<PersonaReadDto | null> {
+    const row = await this.createPersonaReadQuery()
+      .where('persona.id = :id', { id })
+      .getRawOne<PersonaReadRow>();
+
+    return row ? this.mapPersonaReadRow(row) : null;
+  }
+
+  async findByCelularForRead(celular: string): Promise<PersonaReadDto | null> {
+    const row = await this.createPersonaReadQuery()
+      .where('persona.celular = :celular', { celular })
+      .getRawOne<PersonaReadRow>();
+
+    return row ? this.mapPersonaReadRow(row) : null;
   }
 
   findOne(id: string): Promise<Persona | null> {
@@ -336,5 +511,92 @@ export class PersonasService {
     }
 
     return persona;
+  }
+
+  private createPersonaReadQuery() {
+    return this.personaRepository
+      .createQueryBuilder('persona')
+      .leftJoin('persona.red', 'red')
+      .leftJoin('red.sede', 'sede')
+      .leftJoin('persona.invitadoPor', 'invitador')
+      .select('persona.id', 'id')
+      .addSelect('persona.nombres', 'nombres')
+      .addSelect('persona.apellidos', 'apellidos')
+      .addSelect('persona.edad', 'edad')
+      .addSelect('persona.celular', 'celular')
+      .addSelect('persona.tipoDocumento', 'tipoDocumento')
+      .addSelect('persona.documento', 'documento')
+      .addSelect('persona.genero', 'genero')
+      .addSelect('persona.direccion', 'direccion')
+      .addSelect('persona.correo', 'correo')
+      .addSelect('persona.encuentro', 'encuentro')
+      .addSelect('persona.rol', 'rol')
+      .addSelect('CAST(persona.roles AS text[])', 'roles')
+      .addSelect('persona.barrio', 'barrio')
+      .addSelect('persona.departamento', 'departamento')
+      .addSelect('persona.ciudad', 'ciudad')
+      .addSelect('persona.fechaNacimiento', 'fechaNacimiento')
+      .addSelect('persona.idRed', 'idRed')
+      .addSelect('red.id', 'redId')
+      .addSelect('red.nombre', 'redNombre')
+      .addSelect('red.detalles', 'redDetalles')
+      .addSelect('red.idSede', 'redIdSede')
+      .addSelect('sede.id', 'sedeId')
+      .addSelect('sede.nombre', 'sedeNombre')
+      .addSelect('sede.direccion', 'sedeDireccion')
+      .addSelect('invitador.id', 'invitadoPorId')
+      .addSelect('invitador.nombres', 'invitadoPorNombres')
+      .addSelect('invitador.apellidos', 'invitadoPorApellidos')
+      .addSelect('persona.fechaCreacion', 'fechaCreacion')
+      .addSelect('persona.fechaModificacion', 'fechaModificacion');
+  }
+
+  private mapPersonaReadRow(row: PersonaReadRow): PersonaReadDto {
+    const roles = normalizeRoles({ rol: row.rol, roles: row.roles });
+
+    return {
+      id: row.id,
+      nombres: row.nombres,
+      apellidos: row.apellidos,
+      edad: row.edad,
+      celular: row.celular,
+      tipoDocumento: row.tipoDocumento,
+      documento: row.documento,
+      genero: row.genero,
+      direccion: row.direccion,
+      correo: row.correo,
+      encuentro: row.encuentro,
+      rol: getPrimaryRole({ roles }),
+      roles,
+      barrio: row.barrio,
+      departamento: row.departamento,
+      ciudad: row.ciudad,
+      fechaNacimiento: row.fechaNacimiento,
+      idRed: row.idRed,
+      red: row.redId
+        ? {
+            id: row.redId,
+            nombre: row.redNombre,
+            detalles: row.redDetalles,
+            idSede: row.redIdSede,
+            sede: row.sedeId
+              ? {
+                  id: row.sedeId,
+                  nombre: row.sedeNombre,
+                  direccion: row.sedeDireccion,
+                }
+              : null,
+          }
+        : null,
+      invitadoPor: row.invitadoPorId
+        ? {
+            id: row.invitadoPorId,
+            nombres: row.invitadoPorNombres,
+            apellidos: row.invitadoPorApellidos,
+          }
+        : null,
+      fechaCreacion: row.fechaCreacion,
+      fechaModificacion: row.fechaModificacion,
+    };
   }
 }

@@ -332,10 +332,85 @@ export interface CasaPazEncounterCandidatesReportResponse {
   candidates: CasaPazEncounterCandidateItem[];
 }
 
+export interface CasaPazReportExportPersonDto {
+  id: string;
+  nombres: string | null;
+  apellidos: string | null;
+  tipoDocumento: TipoDocumento | null;
+  documento: string | null;
+  celular: string | null;
+  edad: number | null;
+  genero: Genero | null;
+  direccion: string | null;
+  correo: string | null;
+  barrio: string | null;
+  departamento: string | null;
+  ciudad: string | null;
+  fechaNacimiento: string | null;
+  encuentro: boolean | null;
+  red: PublicRedDto | null;
+}
+
+export interface CasaPazReportExportRowDto {
+  idRegistro: string;
+  fechaRegistro: string;
+  esNuevo: boolean;
+  asistencia: {
+    id: string;
+    nombre: string;
+    estado: EstadoAsistenciaCasaPaz;
+    diaRegistro: DiaPredica;
+    direccionCasa: string;
+    red: PublicRedDto | null;
+  };
+  persona: CasaPazReportExportPersonDto | null;
+}
+
+export interface CasaPazReportExportResponse {
+  generatedAt: string;
+  scope: 'global' | 'scoped' | 'link';
+  filters: {
+    month: string | null;
+    fecha: string | null;
+    asistenciaId: string | null;
+  };
+  rows: CasaPazReportExportRowDto[];
+}
+
 interface CasaPazReportFilters {
   month?: string;
   fecha?: string;
   asistenciaId?: string;
+}
+
+interface CasaPazReportExportRowRaw {
+  idRegistro: string;
+  fechaRegistro: string | Date;
+  esNuevo: boolean | string | number | null;
+  idAsistencia: string;
+  nombreAsistencia: string;
+  estadoAsistencia: EstadoAsistenciaCasaPaz;
+  diaRegistro: DiaPredica;
+  direccionCasa: string;
+  idRedAsistencia: string | null;
+  nombreRedAsistencia: string | null;
+  idPersona: string | null;
+  nombresPersona: string | null;
+  apellidosPersona: string | null;
+  tipoDocumentoPersona: TipoDocumento | null;
+  documentoPersona: string | null;
+  celularPersona: string | null;
+  edadPersona: number | string | null;
+  generoPersona: Genero | null;
+  direccionPersona: string | null;
+  correoPersona: string | null;
+  barrioPersona: string | null;
+  departamentoPersona: string | null;
+  ciudadPersona: string | null;
+  fechaNacimientoPersona: string | Date | null;
+  encuentroPersona: boolean | string | number | null;
+  idRedPersona: string | null;
+  nombreRedPersona: string | null;
 }
 
 const ASISTENCIA_ROLE_RELATIONS = [
@@ -508,6 +583,49 @@ export class AsistenciasCasaPazService {
       total: report.encounterCandidates.length,
       candidates: report.encounterCandidates,
     };
+  }
+
+  async findExportRowsReport(
+    query: CasaPazReportQuery,
+    user: AuthenticatedUser,
+  ): Promise<CasaPazReportExportResponse> {
+    const filters: CasaPazReportFilters = {};
+
+    if (query.month) {
+      filters.month = this.normalizeMonthOrThrow(query.month);
+    }
+
+    if (query.fecha) {
+      filters.fecha = normalizeAttendanceDateOrThrow(
+        query.fecha,
+        'The report date',
+      );
+    }
+
+    return this.buildCasaPazExportRowsReport(filters, user);
+  }
+
+  async findDetailExportRowsReport(
+    asistenciaId: string,
+    query: CasaPazReportQuery,
+    user: AuthenticatedUser,
+  ): Promise<CasaPazReportExportResponse> {
+    const filters: CasaPazReportFilters = {
+      asistenciaId,
+    };
+
+    if (query.month) {
+      filters.month = this.normalizeMonthOrThrow(query.month);
+    }
+
+    if (query.fecha) {
+      filters.fecha = normalizeAttendanceDateOrThrow(
+        query.fecha,
+        'The report date',
+      );
+    }
+
+    return this.buildCasaPazExportRowsReport(filters, user);
   }
 
   async create(
@@ -1309,6 +1427,137 @@ export class AsistenciasCasaPazService {
     };
   }
 
+  private async buildCasaPazExportRowsReport(
+    filters: CasaPazReportFilters,
+    user: AuthenticatedUser,
+  ): Promise<CasaPazReportExportResponse> {
+    const normalizedFilters = this.normalizeReportFilters(filters);
+
+    if (!normalizedFilters.month && !normalizedFilters.fecha) {
+      throw new BadRequestException(
+        'A month or date filter is required for attendance exports',
+      );
+    }
+
+    const scopedLinks = await this.findScopedLinksForReport(
+      normalizedFilters,
+      user,
+    );
+    const asistenciaIds = scopedLinks.map((item) => item.id);
+    const responseFilters = {
+      month: normalizedFilters.month ?? null,
+      fecha: normalizedFilters.fecha ?? null,
+      asistenciaId: normalizedFilters.asistenciaId ?? null,
+    };
+
+    if (asistenciaIds.length === 0) {
+      return {
+        generatedAt: new Date().toISOString(),
+        scope: this.resolveReportScope(user, normalizedFilters.asistenciaId),
+        filters: responseFilters,
+        rows: [],
+      };
+    }
+
+    const rows = await this.createRegistroReportQuery(
+      asistenciaIds,
+      normalizedFilters,
+    )
+      .select('registro.id', 'idRegistro')
+      .addSelect('registro.fechaRegistro', 'fechaRegistro')
+      .addSelect('registro.esNuevo', 'esNuevo')
+      .addSelect('asistencia.id', 'idAsistencia')
+      .addSelect('asistencia.nombre', 'nombreAsistencia')
+      .addSelect('asistencia.estado', 'estadoAsistencia')
+      .addSelect('asistencia.diaRegistro', 'diaRegistro')
+      .addSelect('asistencia.direccionCasa', 'direccionCasa')
+      .addSelect('red.id', 'idRedAsistencia')
+      .addSelect('red.nombre', 'nombreRedAsistencia')
+      .addSelect('persona.id', 'idPersona')
+      .addSelect('persona.nombres', 'nombresPersona')
+      .addSelect('persona.apellidos', 'apellidosPersona')
+      .addSelect('persona.tipoDocumento', 'tipoDocumentoPersona')
+      .addSelect('persona.documento', 'documentoPersona')
+      .addSelect('persona.celular', 'celularPersona')
+      .addSelect('persona.edad', 'edadPersona')
+      .addSelect('persona.genero', 'generoPersona')
+      .addSelect('persona.direccion', 'direccionPersona')
+      .addSelect('persona.correo', 'correoPersona')
+      .addSelect('persona.barrio', 'barrioPersona')
+      .addSelect('persona.departamento', 'departamentoPersona')
+      .addSelect('persona.ciudad', 'ciudadPersona')
+      .addSelect('persona.fechaNacimiento', 'fechaNacimientoPersona')
+      .addSelect('persona.encuentro', 'encuentroPersona')
+      .addSelect('persona.red_id', 'idRedPersona')
+      .addSelect('personaRed.nombre', 'nombreRedPersona')
+      .orderBy('registro.fechaRegistro', 'DESC')
+      .addOrderBy('asistencia.nombre', 'ASC')
+      .addOrderBy('persona.apellidos', 'ASC')
+      .addOrderBy('persona.nombres', 'ASC')
+      .getRawMany<CasaPazReportExportRowRaw>();
+
+    return {
+      generatedAt: new Date().toISOString(),
+      scope: this.resolveReportScope(user, normalizedFilters.asistenciaId),
+      filters: responseFilters,
+      rows: rows.map((row) => this.buildCasaPazReportExportRow(row)),
+    };
+  }
+
+  private buildCasaPazReportExportRow(
+    row: CasaPazReportExportRowRaw,
+  ): CasaPazReportExportRowDto {
+    const persona = row.idPersona
+      ? {
+          id: row.idPersona,
+          nombres: row.nombresPersona ?? null,
+          apellidos: row.apellidosPersona ?? null,
+          tipoDocumento: row.tipoDocumentoPersona ?? null,
+          documento: row.documentoPersona ?? null,
+          celular: row.celularPersona ?? null,
+          edad: this.normalizeReportNumberValue(row.edadPersona),
+          genero: row.generoPersona ?? null,
+          direccion: row.direccionPersona ?? null,
+          correo: row.correoPersona ?? null,
+          barrio: row.barrioPersona ?? null,
+          departamento: row.departamentoPersona ?? null,
+          ciudad: row.ciudadPersona ?? null,
+          fechaNacimiento:
+            this.normalizeReportDateValue(row.fechaNacimientoPersona) ?? null,
+          encuentro: this.normalizeReportBooleanValue(row.encuentroPersona),
+          red: row.idRedPersona
+            ? {
+                id: row.idRedPersona,
+                nombre: row.nombreRedPersona ?? null,
+              }
+            : null,
+        }
+      : null;
+
+    return {
+      idRegistro: row.idRegistro,
+      fechaRegistro: normalizeAttendanceDateOrThrow(
+        row.fechaRegistro,
+        'The attendance date',
+      ),
+      esNuevo: this.normalizeReportBooleanValue(row.esNuevo) ?? false,
+      asistencia: {
+        id: row.idAsistencia,
+        nombre: row.nombreAsistencia,
+        estado: row.estadoAsistencia,
+        diaRegistro: row.diaRegistro,
+        direccionCasa: row.direccionCasa,
+        red: row.idRedAsistencia
+          ? {
+              id: row.idRedAsistencia,
+              nombre: row.nombreRedAsistencia ?? null,
+            }
+          : null,
+      },
+      persona,
+    };
+  }
+
   private async buildCasaPazReport(
     filters: CasaPazReportFilters,
     user: AuthenticatedUser,
@@ -1882,6 +2131,35 @@ export class AsistenciasCasaPazService {
     } catch {
       return null;
     }
+  }
+
+  private normalizeReportNumberValue(
+    value: number | string | null | undefined,
+  ): number | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private normalizeReportBooleanValue(
+    value: boolean | string | number | null | undefined,
+  ): boolean | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (value === true || value === 1 || value === 'true' || value === 't') {
+      return true;
+    }
+
+    if (value === false || value === 0 || value === 'false' || value === 'f') {
+      return false;
+    }
+
+    return null;
   }
 
   private collectNormalizedReportDates(

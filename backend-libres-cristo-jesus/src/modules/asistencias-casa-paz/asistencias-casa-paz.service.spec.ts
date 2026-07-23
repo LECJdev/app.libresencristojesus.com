@@ -517,6 +517,168 @@ describe('AsistenciasCasaPazService', () => {
     expect(savedArg.idLiderPrincipal).toBe('persona-leader-owner');
   });
 
+  it('exports one safe row per scoped attendance record with a month filter', async () => {
+    asistenciaQueryBuilder.getRawMany.mockResolvedValueOnce([
+      {
+        id: 'asistencia-1',
+        nombre: 'Casa de Paz Norte',
+        estado: EstadoAsistenciaCasaPaz.ACTIVO,
+        diaRegistro: DiaPredica.DOMINGO,
+        direccionCasa: 'Calle 123',
+        redName: 'Red Norte',
+      },
+    ]);
+    registroQueryBuilder.getRawMany.mockResolvedValueOnce([
+      {
+        idRegistro: 'registro-1',
+        fechaRegistro: '2026-06-23',
+        esNuevo: true,
+        idAsistencia: 'asistencia-1',
+        nombreAsistencia: 'Casa de Paz Norte',
+        estadoAsistencia: EstadoAsistenciaCasaPaz.ACTIVO,
+        diaRegistro: DiaPredica.DOMINGO,
+        direccionCasa: 'Calle 123',
+        idRedAsistencia: 'red-1',
+        nombreRedAsistencia: 'Red Norte',
+        idPersona: 'persona-1',
+        nombresPersona: 'Ana',
+        apellidosPersona: 'Perez',
+        tipoDocumentoPersona: null,
+        documentoPersona: '123',
+        celularPersona: '3001234567',
+        edadPersona: '31',
+        generoPersona: null,
+        direccionPersona: 'Carrera 1',
+        correoPersona: 'ana@example.com',
+        barrioPersona: 'Centro',
+        departamentoPersona: 'Cundinamarca',
+        ciudadPersona: 'Bogota',
+        fechaNacimientoPersona: '1995-01-02',
+        encuentroPersona: 'false',
+        idRedPersona: 'red-2',
+        nombreRedPersona: 'Red Sur',
+      },
+    ]);
+
+    const report = await service.findExportRowsReport(
+      { month: '2026-06' },
+      leaderUser,
+    );
+
+    expect(report).toMatchObject({
+      scope: 'scoped',
+      filters: {
+        month: '2026-06',
+        fecha: null,
+        asistenciaId: null,
+      },
+    });
+    expect(report.rows).toEqual([
+      {
+        idRegistro: 'registro-1',
+        fechaRegistro: '2026-06-23',
+        esNuevo: true,
+        asistencia: {
+          id: 'asistencia-1',
+          nombre: 'Casa de Paz Norte',
+          estado: EstadoAsistenciaCasaPaz.ACTIVO,
+          diaRegistro: DiaPredica.DOMINGO,
+          direccionCasa: 'Calle 123',
+          red: { id: 'red-1', nombre: 'Red Norte' },
+        },
+        persona: {
+          id: 'persona-1',
+          nombres: 'Ana',
+          apellidos: 'Perez',
+          tipoDocumento: null,
+          documento: '123',
+          celular: '3001234567',
+          edad: 31,
+          genero: null,
+          direccion: 'Carrera 1',
+          correo: 'ana@example.com',
+          barrio: 'Centro',
+          departamento: 'Cundinamarca',
+          ciudad: 'Bogota',
+          fechaNacimiento: '1995-01-02',
+          encuentro: false,
+          red: { id: 'red-2', nombre: 'Red Sur' },
+        },
+      },
+    ]);
+    expect(report.rows[0].persona).not.toHaveProperty('password');
+    expect(report.rows[0].asistencia).not.toHaveProperty('qrToken');
+
+    expect(asistenciaQueryBuilder.andWhere).toHaveBeenCalledWith(
+      '(asistencia.idPersonaACargo = :currentUserId OR asistencia.idLiderPrincipal = :currentUserId)',
+      { currentUserId: leaderUser.id },
+    );
+    expect(registroQueryBuilder.andWhere).toHaveBeenCalledWith(
+      'registro.fechaRegistro >= :startDate AND registro.fechaRegistro < :endDate',
+      { startDate: '2026-06-01', endDate: '2026-07-01' },
+    );
+    expect(registroQueryBuilder.select).toHaveBeenCalledWith(
+      'registro.id',
+      'idRegistro',
+    );
+    expect(registroQueryBuilder.addSelect).toHaveBeenCalledWith(
+      'registro.esNuevo',
+      'esNuevo',
+    );
+  });
+
+  it('requires a date or month before starting an attendance export', async () => {
+    await expect(
+      service.findExportRowsReport({}, adminUser),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(asistenciaCasaPazRepo.createQueryBuilder).not.toHaveBeenCalled();
+    expect(registroCasaPazRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('applies the daily report date filter to export rows', async () => {
+    asistenciaQueryBuilder.getRawMany.mockResolvedValueOnce([
+      {
+        id: 'asistencia-1',
+        nombre: 'Casa de Paz Norte',
+        estado: EstadoAsistenciaCasaPaz.ACTIVO,
+        diaRegistro: DiaPredica.DOMINGO,
+        direccionCasa: 'Calle 123',
+        redName: 'Red Norte',
+      },
+    ]);
+    registroQueryBuilder.getRawMany.mockResolvedValueOnce([]);
+
+    const report = await service.findExportRowsReport(
+      { fecha: '2026-06-23' },
+      adminUser,
+    );
+
+    expect(report.filters).toMatchObject({
+      month: null,
+      fecha: '2026-06-23',
+    });
+    expect(registroQueryBuilder.andWhere).toHaveBeenCalledWith(
+      'registro.fechaRegistro = :fecha',
+      { fecha: '2026-06-23' },
+    );
+  });
+
+  it('blocks detail exports outside a scoped leader ownership boundary', async () => {
+    asistenciaQueryBuilder.getRawMany.mockResolvedValueOnce([]);
+    asistenciaCasaPazRepo.findOne.mockResolvedValueOnce(null);
+
+    await expect(
+      service.findDetailExportRowsReport(
+        'asistencia-other',
+        { fecha: '2026-06-23' },
+        leaderUser,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(registroCasaPazRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
   it('blocks leader access to nested attendance records outside their scope', async () => {
     asistenciaCasaPazRepo.findOne.mockResolvedValueOnce(null);
 

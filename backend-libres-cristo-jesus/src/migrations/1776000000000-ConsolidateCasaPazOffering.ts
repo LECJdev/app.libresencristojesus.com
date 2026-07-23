@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class ConsolidateCasaPazOffering1776000000000
-  implements MigrationInterface
-{
+export class ConsolidateCasaPazOffering1776000000000 implements MigrationInterface {
   name = 'ConsolidateCasaPazOffering1776000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

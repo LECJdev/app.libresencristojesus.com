@@ -14,6 +14,7 @@ import { AsistenciasCasaPazService } from './asistencias-casa-paz.service';
 import type {
   CasaPazSesionUpsertDto,
   CasaPazReportQuery,
+  CasaPazReportExportResponse,
   CompletePublicProfileCasaPazDto,
   CreateAsistenciaCasaPazDto,
   ListAsistenciasCasaPazQuery,
@@ -93,6 +94,15 @@ export class AsistenciasCasaPazController {
     );
   }
 
+  @CasaDePazReadAccess()
+  @Get('reportes/export-rows')
+  findExportRows(
+    @Query() query: CasaPazReportQuery,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<CasaPazReportExportResponse> {
+    return this.asistenciasCasaPazService.findExportRowsReport(query, req.user);
+  }
+
   @CasaDePazWriteAccess()
   @Post()
   create(
@@ -148,6 +158,20 @@ export class AsistenciasCasaPazController {
     @Req() req: { user: AuthenticatedUser },
   ): Promise<unknown> {
     return this.asistenciasCasaPazService.findDetailReport(id, query, req.user);
+  }
+
+  @CasaDePazReadAccess()
+  @Get(':id/reportes/export-rows')
+  findDetailExportRows(
+    @Param('id') id: string,
+    @Query() query: CasaPazReportQuery,
+    @Req() req: { user: AuthenticatedUser },
+  ): Promise<CasaPazReportExportResponse> {
+    return this.asistenciasCasaPazService.findDetailExportRowsReport(
+      id,
+      query,
+      req.user,
+    );
   }
 
   @CasaDePazWriteAccess()

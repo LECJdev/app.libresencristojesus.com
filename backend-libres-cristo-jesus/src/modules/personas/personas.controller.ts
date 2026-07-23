@@ -12,6 +12,8 @@ import {
   PersonasService,
   AssignCasaDePazLeaderDto,
   CreateUserDto,
+  PersonaExportRowDto,
+  PersonaReadDto,
   PromotePersonalAdministrativoDto,
 } from './personas.service';
 import { Persona } from './persona.entity';
@@ -31,20 +33,28 @@ export class PersonasController {
 
   @AdminReadAccess()
   @Get()
-  findAll(): Promise<Persona[]> {
+  findAll(): Promise<PersonaReadDto[]> {
     return this.personasService.findAll();
   }
 
   @AdminReadAccess()
+  @Get('export-rows')
+  async exportRows(): Promise<{ rows: PersonaExportRowDto[] }> {
+    return { rows: await this.personasService.findExportRows() };
+  }
+
+  @AdminReadAccess()
   @Get('celular/:numero')
-  findByCelular(@Param('numero') numero: string): Promise<Persona | null> {
-    return this.personasService.findByCelular(numero);
+  findByCelular(
+    @Param('numero') numero: string,
+  ): Promise<PersonaReadDto | null> {
+    return this.personasService.findByCelularForRead(numero);
   }
 
   @AdminReadAccess()
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<Persona | null> {
-    return this.personasService.findOne(id);
+  findOne(@Param('id') id: string): Promise<PersonaReadDto | null> {
+    return this.personasService.findOneForRead(id);
   }
 
   @AdminWriteAccess()

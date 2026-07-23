@@ -56,7 +56,13 @@ describe('AsistenciasDominicalesController (e2e)', () => {
       },
       registroId: 'registro-1',
       fechaRegistro: '2026-06-13',
-      missingFields: ['idRed', 'fechaNacimiento', 'celular', 'departamento', 'ciudad'],
+      missingFields: [
+        'idRed',
+        'fechaNacimiento',
+        'celular',
+        'departamento',
+        'ciudad',
+      ],
     });
 
     const response = await request(app.getHttpServer())
@@ -89,13 +95,21 @@ describe('AsistenciasDominicalesController (e2e)', () => {
       },
       registroId: 'registro-1',
       fechaRegistro: '2026-06-13',
-      missingFields: ['idRed', 'fechaNacimiento', 'celular', 'departamento', 'ciudad'],
+      missingFields: [
+        'idRed',
+        'fechaNacimiento',
+        'celular',
+        'departamento',
+        'ciudad',
+      ],
     });
   });
 
   it('POST /asistencias-dominicales/public/:token/registrar returns 404 for unknown documents without person payload', async () => {
     asistenciasDominicalesService.registrarPublico.mockRejectedValue(
-      new NotFoundException('Persona no encontrada. Completa el formulario para continuar.'),
+      new NotFoundException(
+        'Persona no encontrada. Completa el formulario para continuar.',
+      ),
     );
 
     await request(app.getHttpServer())

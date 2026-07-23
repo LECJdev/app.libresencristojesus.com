@@ -59,7 +59,10 @@ export class AsistenciasDicipuladosController {
     @Param('token') token: string,
     @Body() payload: CompletePublicProfileDicipuladoDto,
   ): Promise<unknown> {
-    return this.asistenciasDicipuladosService.completePublicProfile(token, payload);
+    return this.asistenciasDicipuladosService.completePublicProfile(
+      token,
+      payload,
+    );
   }
 
   @Get(':id')
@@ -103,9 +106,7 @@ export class AsistenciasDicipuladosController {
   }
 
   @Get(':id/registros/fechas')
-  findFechasDisponiblesByAsistencia(
-    @Param('id') id: string,
-  ): Promise<unknown> {
+  findFechasDisponiblesByAsistencia(@Param('id') id: string): Promise<unknown> {
     return this.asistenciasDicipuladosService.findFechasDisponiblesByAsistencia(
       id,
     );
@@ -116,7 +117,10 @@ export class AsistenciasDicipuladosController {
     @Param('id') id: string,
     @Query('fecha') fecha: string,
   ): Promise<unknown> {
-    return this.asistenciasDicipuladosService.findResumenByAsistencia(id, fecha);
+    return this.asistenciasDicipuladosService.findResumenByAsistencia(
+      id,
+      fecha,
+    );
   }
 
   @Get(':id/registros/resumen-por-red')

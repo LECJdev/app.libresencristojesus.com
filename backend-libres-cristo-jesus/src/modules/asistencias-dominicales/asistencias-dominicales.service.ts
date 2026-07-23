@@ -34,6 +34,10 @@ import {
   normalizeOptionalAttendanceDateOrThrow,
 } from '../../common/utils/attendance-date.util';
 
+const DEFAULT_REGISTROS_LIMIT = 100;
+const MAX_REGISTROS_LIMIT = 300;
+const MAX_REGISTROS_ALL_LIMIT = 1000;
+
 interface PaginationResult<T> {
   data: T[];
   total: number;
@@ -44,6 +48,12 @@ interface PaginationResult<T> {
 
 interface AttendanceDateSummary {
   fecha: string;
+  totalAsistentes: number;
+  totalNuevos: number;
+}
+
+interface AttendanceMonthlySummary {
+  mes: string;
   totalAsistentes: number;
   totalNuevos: number;
 }
@@ -65,6 +75,7 @@ export interface ListRegistrosDominicalesQuery {
   search?: string;
   soloNuevos?: string;
   fecha?: string;
+  idRed?: string;
   page?: string;
   limit?: string;
 }
@@ -120,6 +131,37 @@ export type MissingProfileField =
   | 'celular'
   | 'departamento'
   | 'ciudad';
+
+export interface DominicalAttendanceExportRow {
+  idRegistro: string;
+  fechaRegistro: string;
+  esNuevo: boolean;
+  asistenciaId: string;
+  asistenciaNombre: string;
+  sede: string | null;
+  diaRegistro: DiaPredica;
+  estado: EstadoAsistenciaDominical;
+  redId: string | null;
+  redNombre: string | null;
+  personaId: string | null;
+  nombres: string | null;
+  apellidos: string | null;
+  tipoDocumento: TipoDocumento | null;
+  documento: string | null;
+  celular: string | null;
+  edad: number | null;
+  genero: Genero | null;
+  direccion: string | null;
+  correo: string | null;
+  barrio: string | null;
+  departamento: string | null;
+  ciudad: string | null;
+  fechaNacimiento: string | null;
+}
+
+export interface DominicalAttendanceExportResponse {
+  rows: DominicalAttendanceExportRow[];
+}
 
 @Injectable()
 export class AsistenciasDominicalesService {
@@ -257,13 +299,26 @@ export class AsistenciasDominicalesService {
   ): Promise<PaginationResult<RegistroAsistenciaDominical>> {
     await this.findOne(asistenciaId);
 
-    const { page, limit } = this.getPagination(query.page, query.limit);
+    const { page, limit } = this.getPagination(query.page, query.limit, {
+      defaultLimit: DEFAULT_REGISTROS_LIMIT,
+      maxLimit: MAX_REGISTROS_LIMIT,
+      allowAll: true,
+      allLimit: MAX_REGISTROS_ALL_LIMIT,
+    });
     const fecha = this.normalizeFechaFiltro(query.fecha);
+    const idRed = query.idRed
+      ? sanitizeEntityIdOrThrow(query.idRed, 'ID de red')
+      : undefined;
 
     const qb = this.registroDominicalRepo
       .createQueryBuilder('registro')
-      .leftJoinAndSelect('registro.persona', 'persona')
-      .where('registro.idAsistencia = :asistenciaId', { asistenciaId })
+      .leftJoinAndSelect('registro.persona', 'persona');
+
+    if (idRed) {
+      qb.leftJoin('persona.red', 'red');
+    }
+
+    qb.where('registro.idAsistencia = :asistenciaId', { asistenciaId })
       .orderBy('registro.fechaRegistro', 'DESC')
       .addOrderBy('registro.fechaCreacion', 'DESC')
       .skip((page - 1) * limit)
@@ -284,6 +339,10 @@ export class AsistenciasDominicalesService {
 
     if (query.soloNuevos === 'true') {
       qb.andWhere('registro.esNuevo = true');
+    }
+
+    if (idRed) {
+      qb.andWhere('red.id = :idRed', { idRed });
     }
 
     if (fecha) {
@@ -346,6 +405,66 @@ export class AsistenciasDominicalesService {
     };
   }
 
+  async findResumenPorMesByAsistencia(
+    asistenciaId: string,
+  ): Promise<AttendanceMonthlySummary[]> {
+    await this.findOne(asistenciaId);
+
+    const rows = await this.registroDominicalRepo
+      .createQueryBuilder('registro')
+      .select("TO_CHAR(registro.fechaRegistro, 'YYYY-MM')", 'mes')
+      .addSelect('COUNT(*)', 'totalAsistentes')
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN registro.esNuevo = true THEN 1 ELSE 0 END), 0)',
+        'totalNuevos',
+      )
+      .where('registro.idAsistencia = :asistenciaId', { asistenciaId })
+      .groupBy("TO_CHAR(registro.fechaRegistro, 'YYYY-MM')")
+      .orderBy('mes', 'ASC')
+      .getRawMany<{
+        mes: string;
+        totalAsistentes: string | number;
+        totalNuevos: string | number;
+      }>();
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const sortedRows = [...rows].sort((left, right) =>
+      left.mes.localeCompare(right.mes),
+    );
+    const rowsByMonth = new Map(sortedRows.map((row) => [row.mes, row]));
+    const [startYear, startMonth] = sortedRows[0].mes.split('-').map(Number);
+    const [endYear, endMonth] = sortedRows[sortedRows.length - 1].mes
+      .split('-')
+      .map(Number);
+    const result: AttendanceMonthlySummary[] = [];
+
+    let year = startYear;
+    let month = startMonth;
+    while (year < endYear || (year === endYear && month <= endMonth)) {
+      const mes = `${year.toString().padStart(4, '0')}-${month
+        .toString()
+        .padStart(2, '0')}`;
+      const row = rowsByMonth.get(mes);
+
+      result.push({
+        mes,
+        totalAsistentes: Number(row?.totalAsistentes ?? 0),
+        totalNuevos: Number(row?.totalNuevos ?? 0),
+      });
+
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+
+    return result;
+  }
+
   async findResumenPorRedByAsistencia(
     asistenciaId: string,
     fechaRaw: string,
@@ -381,6 +500,66 @@ export class AsistenciasDominicalesService {
       nombreRed: row.nombreRed ?? null,
       totalAsistentes: Number(row.totalAsistentes ?? 0),
     }));
+  }
+
+  async exportRegistros(
+    asistenciaId: string,
+    fechaRaw?: string,
+  ): Promise<DominicalAttendanceExportResponse> {
+    await this.findOne(asistenciaId);
+
+    const fecha =
+      fechaRaw === undefined
+        ? undefined
+        : normalizeAttendanceDateOrThrow(fechaRaw, 'La fecha de exportación');
+
+    const qb = this.registroDominicalRepo
+      .createQueryBuilder('registro')
+      .leftJoin('registro.asistencia', 'asistencia')
+      .leftJoin('asistencia.sede', 'sede')
+      .leftJoin('registro.persona', 'persona')
+      .leftJoin('persona.red', 'red')
+      .where('registro.idAsistencia = :asistenciaId', { asistenciaId })
+      .select('registro.id', 'idRegistro')
+      .addSelect('registro.fechaRegistro', 'fechaRegistro')
+      .addSelect('registro.esNuevo', 'esNuevo')
+      .addSelect('asistencia.id', 'asistenciaId')
+      .addSelect('asistencia.nombre', 'asistenciaNombre')
+      .addSelect('sede.nombre', 'sedeNombre')
+      .addSelect('asistencia.diaRegistro', 'diaRegistro')
+      .addSelect('asistencia.estado', 'estado')
+      .addSelect('red.id', 'redId')
+      .addSelect('red.nombre', 'redNombre')
+      .addSelect('persona.id', 'personaId')
+      .addSelect('persona.nombres', 'nombres')
+      .addSelect('persona.apellidos', 'apellidos')
+      .addSelect('persona.tipoDocumento', 'tipoDocumento')
+      .addSelect('persona.documento', 'documento')
+      .addSelect('persona.celular', 'celular')
+      .addSelect('persona.edad', 'edad')
+      .addSelect('persona.genero', 'genero')
+      .addSelect('persona.direccion', 'direccion')
+      .addSelect('persona.correo', 'correo')
+      .addSelect('persona.barrio', 'barrio')
+      .addSelect('persona.departamento', 'departamento')
+      .addSelect('persona.ciudad', 'ciudad')
+      .addSelect('persona.fechaNacimiento', 'fechaNacimiento')
+      .orderBy('registro.fechaRegistro', 'ASC')
+      .addOrderBy('persona.apellidos', 'ASC')
+      .addOrderBy('persona.nombres', 'ASC')
+      .addOrderBy('registro.id', 'ASC');
+
+    if (fecha) {
+      qb.andWhere('registro.fechaRegistro = :fecha', { fecha });
+    }
+
+    const rows = await qb.getRawMany();
+
+    return {
+      rows: rows.map((row: Record<string, unknown>) =>
+        this.mapDominicalAttendanceExportRow(row),
+      ),
+    };
   }
 
   async getPublicByToken(token: string): Promise<AsistenciaDominical> {
@@ -450,7 +629,10 @@ export class AsistenciasDominicalesService {
 
     if (existente) {
       const missingFields = this.getMissingProfileFields(persona);
-      const profileCompletion = this.buildProfileCompletion(persona, existente.esNuevo);
+      const profileCompletion = this.buildProfileCompletion(
+        persona,
+        existente.esNuevo,
+      );
       return {
         alreadyRegistered: true,
         esNuevo: existente.esNuevo,
@@ -504,7 +686,8 @@ export class AsistenciasDominicalesService {
             alreadyRegistered: true,
             esNuevo: duplicated.esNuevo,
             needsProfileCompletion:
-              profileCompletion.needsRed || profileCompletion.needsFechaNacimiento,
+              profileCompletion.needsRed ||
+              profileCompletion.needsFechaNacimiento,
             profileCompletion,
             persona,
             registroId: duplicated.id,
@@ -523,7 +706,10 @@ export class AsistenciasDominicalesService {
     payload: CompletePublicProfileDto,
   ): Promise<Persona> {
     const asistencia = await this.getPublicByToken(sanitizeTokenOrThrow(token));
-    const personaId = sanitizeEntityIdOrThrow(payload.personaId, 'ID de persona');
+    const personaId = sanitizeEntityIdOrThrow(
+      payload.personaId,
+      'ID de persona',
+    );
     const documento = sanitizeDocumentoOrThrow(payload.documento);
 
     const persona = await this.personaRepo.findOne({
@@ -532,7 +718,9 @@ export class AsistenciasDominicalesService {
     });
 
     if (!persona) {
-      throw new NotFoundException('Persona no encontrada para completar el perfil');
+      throw new NotFoundException(
+        'Persona no encontrada para completar el perfil',
+      );
     }
 
     const registro = await this.registroDominicalRepo.findOneBy({
@@ -556,7 +744,9 @@ export class AsistenciasDominicalesService {
     }
 
     if (!persona.fechaNacimiento && payload.fechaNacimiento) {
-      updateData.fechaNacimiento = this.normalizeBirthDate(payload.fechaNacimiento);
+      updateData.fechaNacimiento = this.normalizeBirthDate(
+        payload.fechaNacimiento,
+      );
     }
 
     if (!persona.celular && payload.celular) {
@@ -572,7 +762,11 @@ export class AsistenciasDominicalesService {
     }
 
     if (!persona.ciudad && payload.ciudad) {
-      updateData.ciudad = sanitizeRequiredTextOrThrow(payload.ciudad, 'Ciudad', 150);
+      updateData.ciudad = sanitizeRequiredTextOrThrow(
+        payload.ciudad,
+        'Ciudad',
+        150,
+      );
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -587,7 +781,9 @@ export class AsistenciasDominicalesService {
     });
 
     if (!updated) {
-      throw new NotFoundException('Persona no encontrada después de completar el perfil');
+      throw new NotFoundException(
+        'Persona no encontrada después de completar el perfil',
+      );
     }
 
     return updated;
@@ -675,7 +871,10 @@ export class AsistenciasDominicalesService {
   }
 
   private getErrorMessage(error: unknown): string {
-    if (error instanceof BadRequestException || error instanceof NotFoundException) {
+    if (
+      error instanceof BadRequestException ||
+      error instanceof NotFoundException
+    ) {
       const response = error.getResponse();
       if (typeof response === 'string') {
         return response;
@@ -704,7 +903,9 @@ export class AsistenciasDominicalesService {
     const trimmed = value.trim();
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      throw new BadRequestException('La fecha de nacimiento no tiene un formato válido');
+      throw new BadRequestException(
+        'La fecha de nacimiento no tiene un formato válido',
+      );
     }
 
     const parsed = new Date(`${trimmed}T00:00:00.000Z`);
@@ -774,18 +975,32 @@ export class AsistenciasDominicalesService {
   private getPagination(
     pageRaw?: string,
     limitRaw?: string,
+    options: {
+      defaultLimit?: number;
+      maxLimit?: number;
+      allowAll?: boolean;
+      allLimit?: number;
+    } = {},
   ): {
     page: number;
     limit: number;
   } {
+    const defaultLimit = options.defaultLimit ?? 10;
+    const maxLimit = options.maxLimit ?? 100;
+    const allLimit = options.allLimit ?? maxLimit;
     const parsedPage = Number.parseInt(pageRaw ?? '1', 10);
-    const parsedLimit = Number.parseInt(limitRaw ?? '10', 10);
+    const isAll = options.allowAll && limitRaw?.trim().toLowerCase() === 'all';
+    const parsedLimit = Number.parseInt(limitRaw ?? String(defaultLimit), 10);
 
     const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+    if (isAll) {
+      return { page, limit: allLimit };
+    }
+
     const limit =
       Number.isFinite(parsedLimit) && parsedLimit > 0
-        ? Math.min(parsedLimit, 100)
-        : 10;
+        ? Math.min(parsedLimit, maxLimit)
+        : defaultLimit;
 
     return { page, limit };
   }
@@ -810,6 +1025,38 @@ export class AsistenciasDominicalesService {
 
   private getCurrentDateString(): string {
     return getBogotaDateString();
+  }
+
+  private mapDominicalAttendanceExportRow(
+    row: Record<string, unknown>,
+  ): DominicalAttendanceExportRow {
+    return {
+      idRegistro: (row.idRegistro ?? '') as string,
+      fechaRegistro: (row.fechaRegistro ?? '') as string,
+      esNuevo: Boolean(row.esNuevo),
+      asistenciaId: (row.asistenciaId ?? '') as string,
+      asistenciaNombre: (row.asistenciaNombre ?? '') as string,
+      sede: (row.sedeNombre ?? null) as string | null,
+      diaRegistro: (row.diaRegistro ?? '') as DiaPredica,
+      estado: (row.estado ?? '') as EstadoAsistenciaDominical,
+      redId: (row.redId ?? null) as string | null,
+      redNombre: (row.redNombre ?? null) as string | null,
+      personaId: (row.personaId ?? null) as string | null,
+      nombres: (row.nombres ?? null) as string | null,
+      apellidos: (row.apellidos ?? null) as string | null,
+      tipoDocumento: (row.tipoDocumento ?? null) as TipoDocumento | null,
+      documento: (row.documento ?? null) as string | null,
+      celular: (row.celular ?? null) as string | null,
+      edad:
+        row.edad === null || row.edad === undefined ? null : Number(row.edad),
+      genero: (row.genero ?? null) as Genero | null,
+      direccion: (row.direccion ?? null) as string | null,
+      correo: (row.correo ?? null) as string | null,
+      barrio: (row.barrio ?? null) as string | null,
+      departamento: (row.departamento ?? null) as string | null,
+      ciudad: (row.ciudad ?? null) as string | null,
+      fechaNacimiento: (row.fechaNacimiento ?? null) as string | null,
+    };
   }
 
   private isUniqueViolation(error: unknown): boolean {

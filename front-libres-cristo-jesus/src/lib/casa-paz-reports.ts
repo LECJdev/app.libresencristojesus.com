@@ -1,3 +1,5 @@
+import { getBogotaDateString } from './attendance-date.ts';
+
 export interface PersonaOption {
   id: string;
   nombres: string | null;
@@ -123,6 +125,10 @@ export function formatDateLabel(value: string | null) {
   }).format(new Date(`${value}T00:00:00.000Z`));
 }
 
-export function getCurrentMonthValue() {
-  return new Date().toISOString().slice(0, 7);
+export function getCurrentMonthValue(date: Date = new Date()) {
+  return getBogotaDateString(date).slice(0, 7);
+}
+
+export function getCurrentDateValue(date: Date = new Date()) {
+  return getBogotaDateString(date);
 }

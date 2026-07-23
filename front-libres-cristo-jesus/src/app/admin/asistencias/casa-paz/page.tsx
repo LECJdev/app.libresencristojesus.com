@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { CasaPazReportPanel } from '@/components/casa-paz/casa-paz-report-panel';
@@ -13,6 +14,11 @@ import {
   type PersonaOption,
 } from '@/lib/casa-paz-reports';
 import {
+  buildCasaPazReportExportParams,
+  downloadCasaPazReport,
+  type CasaPazReportExportResponse,
+} from '@/lib/casa-paz-report-export';
+import {
   Plus,
   Search,
   Eye,
@@ -23,6 +29,21 @@ import {
   X,
   Home,
 } from 'lucide-react';
+
+const SESSION_ERROR_MESSAGE =
+  'Tu sesión expiró o no es válida. Inicia sesión nuevamente para continuar.';
+
+function isUnauthorizedError(error: unknown) {
+  return axios.isAxiosError(error) && error.response?.status === 401;
+}
+
+function getStoredAuthToken() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return localStorage.getItem('LC_AUTH_TOKEN')?.trim() ?? '';
+}
 
 type EstadoAsistenciaCasaPaz = 'ACTIVO' | 'INACTIVO';
 type DiaPredica =
@@ -251,7 +272,13 @@ function SearchablePersonaSelect({
 
 export default function AsistenciasCasaPazPage() {
   const router = useRouter();
-  const { canDeleteData, isScopedCasaDePazLeader, loading: authLoading, user } = useAuth();
+  const {
+    canDeleteData,
+    isScopedCasaDePazLeader,
+    loading: authLoading,
+    logout,
+    user,
+  } = useAuth();
 
   const currentLeaderOption = useMemo<PersonaOption | null>(
     () =>
@@ -269,10 +296,20 @@ export default function AsistenciasCasaPazPage() {
   const [redes, setRedes] = useState<Red[]>([]);
   const [personas, setPersonas] = useState<PersonaOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingFormOptions, setLoadingFormOptions] = useState(true);
+  const [redesError, setRedesError] = useState<string | null>(null);
+  const [personasError, setPersonasError] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [loadingReports, setLoadingReports] = useState(true);
   const [summaryReport, setSummaryReport] = useState<CasaPazReportResponse | null>(null);
   const [monthlyReport, setMonthlyReport] = useState<CasaPazReportResponse | null>(null);
   const [reportMonth, setReportMonth] = useState(getCurrentMonthValue());
+  const [exportingReport, setExportingReport] = useState(false);
+  const dataRequestIdRef = useRef(0);
+  const formOptionsRequestIdRef = useRef(0);
+  const reportRequestIdRef = useRef(0);
+  const exportRequestIdRef = useRef(0);
+  const sessionInvalidatedRef = useRef(false);
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -294,34 +331,165 @@ export default function AsistenciasCasaPazPage() {
     idLiderPrincipal: '',
   });
 
+  const invalidateSession = () => {
+    if (sessionInvalidatedRef.current) {
+      return;
+    }
+
+    sessionInvalidatedRef.current = true;
+    dataRequestIdRef.current += 1;
+    formOptionsRequestIdRef.current += 1;
+    reportRequestIdRef.current += 1;
+    exportRequestIdRef.current += 1;
+    setSessionError(SESSION_ERROR_MESSAGE);
+    logout();
+  };
+
+  const requireAuthenticatedSession = () => {
+    if (authLoading || sessionInvalidatedRef.current) {
+      return false;
+    }
+
+    if (!user || !getStoredAuthToken()) {
+      invalidateSession();
+      return false;
+    }
+
+    return true;
+  };
+
   const fetchData = async (
     nextPage: number = page,
     nextSearch: string = search,
   ) => {
+    if (!requireAuthenticatedSession()) {
+      return;
+    }
+
+    const requestId = ++dataRequestIdRef.current;
     setLoading(true);
     try {
-      const [{ data: asistencias }, { data: redesData }, personasResponse] = await Promise.all([
-        apiClient.get<PagedResponse<AsistenciaCasaPaz>>('/asistencias-casa-paz', {
+      const { data: asistencias } = await apiClient.get<PagedResponse<AsistenciaCasaPaz>>(
+        '/asistencias-casa-paz',
+        {
           params: { search: nextSearch, page: nextPage, limit },
-        }),
-        apiClient.get<Red[]>('/redes'),
-        apiClient.get<PersonaOption[]>('/asistencias-casa-paz/person-options'),
-      ]);
+        },
+      );
+
+      if (requestId !== dataRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
 
       setItems(asistencias.data);
       setTotalPages(asistencias.totalPages || 1);
-      setRedes(redesData);
-      setPersonas(personasResponse.data);
     } catch (error) {
+      if (requestId !== dataRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       console.error(error);
+
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
       alert('Error cargando asistencias de casa de paz');
     } finally {
-      setLoading(false);
+      if (requestId === dataRequestIdRef.current && !sessionInvalidatedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
-  const fetchReports = async (month: string = reportMonth) => {
+  const fetchFormOptions = async () => {
+    if (authLoading || sessionInvalidatedRef.current) {
+      return;
+    }
+
+    const requestId = ++formOptionsRequestIdRef.current;
+    setLoadingFormOptions(true);
+
+    try {
+      const redesRequest = apiClient.get<Red[]>('/redes');
+
+      if (!user || !getStoredAuthToken()) {
+        const [redesResult] = await Promise.allSettled([redesRequest]);
+
+        if (requestId !== formOptionsRequestIdRef.current || sessionInvalidatedRef.current) {
+          return;
+        }
+
+        if (redesResult.status === 'fulfilled') {
+          setRedes(redesResult.value.data);
+          setRedesError(null);
+        } else {
+          console.error(redesResult.reason);
+          setRedes([]);
+          setRedesError('No se pudieron cargar las redes. Recarga la página e inténtalo nuevamente.');
+        }
+
+        invalidateSession();
+        return;
+      }
+
+      const [redesResult, personasResult] = await Promise.allSettled([
+        redesRequest,
+        apiClient.get<PersonaOption[]>('/asistencias-casa-paz/person-options'),
+      ]);
+
+      if (requestId !== formOptionsRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
+      if (redesResult.status === 'fulfilled') {
+        setRedes(redesResult.value.data);
+        setRedesError(null);
+      } else {
+        console.error(redesResult.reason);
+        setRedes([]);
+        setRedesError('No se pudieron cargar las redes. Recarga la página e inténtalo nuevamente.');
+      }
+
+      if (personasResult.status === 'fulfilled') {
+        setPersonas(personasResult.value.data);
+        setPersonasError(null);
+      } else {
+        console.error(personasResult.reason);
+
+        if (isUnauthorizedError(personasResult.reason)) {
+          invalidateSession();
+          return;
+        }
+
+        setPersonas([]);
+        setPersonasError(
+          'No se pudieron cargar las personas responsables. Recarga la página e inténtalo nuevamente.',
+        );
+      }
+    } finally {
+      if (requestId === formOptionsRequestIdRef.current && !sessionInvalidatedRef.current) {
+        setLoadingFormOptions(false);
+      }
+    }
+  };
+
+  const invalidateReportState = () => {
+    const requestId = ++reportRequestIdRef.current;
+    exportRequestIdRef.current += 1;
+    setSummaryReport(null);
+    setMonthlyReport(null);
     setLoadingReports(true);
+    setExportingReport(false);
+    return requestId;
+  };
+
+  const fetchReports = async (month: string = reportMonth) => {
+    if (!requireAuthenticatedSession()) {
+      return;
+    }
+
+    const requestId = invalidateReportState();
     try {
       const [{ data: summary }, { data: monthly }] = await Promise.all([
         apiClient.get<CasaPazReportResponse>('/asistencias-casa-paz/reportes/resumen-general'),
@@ -330,13 +498,82 @@ export default function AsistenciasCasaPazPage() {
         }),
       ]);
 
+      if (requestId !== reportRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       setSummaryReport(summary);
       setMonthlyReport(monthly);
     } catch (error) {
+      if (requestId !== reportRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       console.error(error);
+
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
       alert('Error al cargar los reportes de Casa de Paz');
     } finally {
-      setLoadingReports(false);
+      if (
+        requestId === reportRequestIdRef.current &&
+        !sessionInvalidatedRef.current
+      ) {
+        setLoadingReports(false);
+      }
+    }
+  };
+
+  const handleExportReport = async (report: CasaPazReportResponse | null) => {
+    if (!report || !requireAuthenticatedSession()) {
+      return;
+    }
+
+    const reportRequestId = reportRequestIdRef.current;
+    const exportRequestId = ++exportRequestIdRef.current;
+    setExportingReport(true);
+    try {
+      const { data } = await apiClient.get<CasaPazReportExportResponse>(
+        '/asistencias-casa-paz/reportes/export-rows',
+        {
+          params: buildCasaPazReportExportParams(report),
+        },
+      );
+
+      if (
+        reportRequestId !== reportRequestIdRef.current ||
+        exportRequestId !== exportRequestIdRef.current
+      ) {
+        return;
+      }
+
+      downloadCasaPazReport(data);
+    } catch (error) {
+      if (
+        reportRequestId !== reportRequestIdRef.current ||
+        exportRequestId !== exportRequestIdRef.current
+      ) {
+        return;
+      }
+
+      console.error(error);
+
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
+      alert('Error al exportar el reporte de Casa de Paz');
+    } finally {
+      if (
+        exportRequestId === exportRequestIdRef.current &&
+        !sessionInvalidatedRef.current
+      ) {
+        setExportingReport(false);
+      }
     }
   };
 
@@ -345,13 +582,26 @@ export default function AsistenciasCasaPazPage() {
       return;
     }
 
-    const loadData = async () => {
-      await Promise.all([fetchData(page, search), fetchReports(reportMonth)]);
-    };
+    const timeoutId = window.setTimeout(() => {
+      void fetchData(page, search);
+    }, 0);
 
-    void loadData();
+    return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, page]);
+  }, [authLoading, page, user]);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchFormOptions();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user]);
 
   useEffect(() => {
     if (authLoading) {
@@ -364,7 +614,7 @@ export default function AsistenciasCasaPazPage() {
 
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, reportMonth]);
+  }, [authLoading, reportMonth, user]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -373,6 +623,10 @@ export default function AsistenciasCasaPazPage() {
   };
 
   const openCreate = () => {
+    if (loadingFormOptions) {
+      return;
+    }
+
     setEditing(null);
     setForm({
       nombre: '',
@@ -449,6 +703,10 @@ export default function AsistenciasCasaPazPage() {
           : form.idLiderPrincipal || null,
     };
 
+    if (!requireAuthenticatedSession()) {
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (editing) {
@@ -461,9 +719,17 @@ export default function AsistenciasCasaPazPage() {
       await fetchData();
     } catch (error) {
       console.error(error);
+
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
       alert('Error guardando la asistencia de casa de paz');
     } finally {
-      setSubmitting(false);
+      if (!sessionInvalidatedRef.current) {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -472,6 +738,7 @@ export default function AsistenciasCasaPazPage() {
       item.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
 
     if (!confirm(`¿Confirmas cambiar el estado a ${nextEstado}?`)) return;
+    if (!requireAuthenticatedSession()) return;
 
     try {
       await apiClient.patch(`/asistencias-casa-paz/${item.id}/estado`, {
@@ -480,6 +747,12 @@ export default function AsistenciasCasaPazPage() {
       await fetchData();
     } catch (error) {
       console.error(error);
+
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
       alert('Error cambiando estado');
     }
   };
@@ -487,12 +760,19 @@ export default function AsistenciasCasaPazPage() {
   const handleDelete = async (id: string) => {
     if (!canDeleteData) return;
     if (!confirm('¿Seguro de eliminar esta asistencia de casa de paz?')) return;
+    if (!requireAuthenticatedSession()) return;
 
     try {
       await apiClient.delete(`/asistencias-casa-paz/${id}`);
       await fetchData();
     } catch (error) {
       console.error(error);
+
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
       alert('Error eliminando asistencia');
     }
   };
@@ -538,12 +818,21 @@ export default function AsistenciasCasaPazPage() {
         </div>
 
         <button
+          type="button"
           onClick={openCreate}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors text-sm font-medium"
+          disabled={loadingFormOptions}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Plus className="h-4 w-4" /> Nueva Asistencia
+          <Plus className="h-4 w-4" />
+          {loadingFormOptions ? 'Cargando opciones...' : 'Nueva Asistencia'}
         </button>
       </div>
+
+      {sessionError ? (
+        <div role="alert" className="mb-6 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {sessionError}
+        </div>
+      ) : null}
 
       <div className="mb-6 space-y-4">
         <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-end md:justify-between">
@@ -559,7 +848,10 @@ export default function AsistenciasCasaPazPage() {
               <input
                 type="month"
                 value={reportMonth}
-                onChange={(e) => setReportMonth(e.target.value)}
+                onChange={(e) => {
+                  invalidateReportState();
+                  setReportMonth(e.target.value);
+                }}
                 className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
               />
             </label>
@@ -580,6 +872,8 @@ export default function AsistenciasCasaPazPage() {
           report={monthlyReport}
           loading={loadingReports}
           candidateLimit={5}
+          onExport={() => void handleExportReport(monthlyReport)}
+          exporting={exportingReport}
         />
       </div>
 
@@ -734,6 +1028,22 @@ export default function AsistenciasCasaPazPage() {
             </div>
 
             <div className="space-y-4 p-4 sm:p-6">
+              {redesError ? (
+                <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {redesError}
+                </p>
+              ) : redes.length === 0 ? (
+                <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  No hay redes disponibles para seleccionar. Debes crear una red antes de guardar esta asistencia.
+                </p>
+              ) : null}
+
+              {personasError ? (
+                <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {personasError}
+                </p>
+              ) : null}
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
                 <input
@@ -751,6 +1061,7 @@ export default function AsistenciasCasaPazPage() {
                   required
                   value={form.idRed}
                   onChange={(e) => setForm((prev) => ({ ...prev, idRed: e.target.value }))}
+                  disabled={Boolean(redesError)}
                   className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 bg-white"
                 >
                   <option value="">Selecciona una red</option>
@@ -832,6 +1143,7 @@ export default function AsistenciasCasaPazPage() {
                     }
                     options={selectablePersonas}
                     selectedOption={selectedPersonInCharge}
+                    disabled={Boolean(personasError)}
                      placeholder="Escribe para buscar la persona a cargo"
                   />
                 </div>
@@ -845,6 +1157,7 @@ export default function AsistenciasCasaPazPage() {
                     }
                     options={selectablePersonas}
                     selectedOption={selectedHost}
+                    disabled={Boolean(personasError)}
                      placeholder="Escribe para buscar el anfitrión"
                   />
                 </div>
@@ -858,7 +1171,7 @@ export default function AsistenciasCasaPazPage() {
                     }
                     options={selectablePersonas}
                     selectedOption={selectedLeader}
-                    disabled={isScopedCasaDePazLeader}
+                    disabled={isScopedCasaDePazLeader || Boolean(personasError)}
                     required
                      placeholder="Escribe para buscar el líder principal"
                     lockedMessage={

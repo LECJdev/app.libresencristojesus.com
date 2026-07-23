@@ -1,6 +1,6 @@
 'use client';
 
-import { Network, UserPlus, Users } from 'lucide-react';
+import { CalendarDays, Network, UserPlus, Users } from 'lucide-react';
 
 export interface AttendanceSummary {
   fecha: string;
@@ -18,12 +18,14 @@ interface AttendanceSummaryPanelProps {
   hasSelectedDate: boolean;
   summary: AttendanceSummary | null;
   redSummary: AttendanceRedSummary[];
+  primaryFirst?: boolean;
 }
 
 export function AttendanceSummaryPanel({
   hasSelectedDate,
   summary,
   redSummary,
+  primaryFirst = false,
 }: AttendanceSummaryPanelProps) {
   const sinRed = redSummary.find((item) => !item.idRed);
 
@@ -41,21 +43,57 @@ export function AttendanceSummaryPanel({
 
   return (
     <div className="mb-5 space-y-4">
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 to-slate-700 p-4 text-white shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-200">
-                Total asistentes
-              </p>
-              <p className="mt-3 text-3xl font-bold">{summary.totalAsistentes}</p>
+      {primaryFirst && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Fecha seleccionada
+                </p>
+                <p className="mt-3 text-2xl font-bold text-slate-900">{summary.fecha}</p>
+              </div>
+              <div className="rounded-xl bg-white p-2.5 text-slate-600 shadow-sm">
+                <CalendarDays className="h-5 w-5" />
+              </div>
             </div>
-            <div className="rounded-xl bg-white/10 p-2.5">
-              <Users className="h-5 w-5" />
-            </div>
+            <p className="mt-4 text-xs text-slate-500">Resumen del día seleccionado</p>
           </div>
-          <p className="mt-4 text-xs text-slate-200">Fecha seleccionada: {summary.fecha}</p>
+
+          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 to-slate-700 p-4 text-white shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-200">
+                  Personas atendidas
+                </p>
+                <p className="mt-3 text-3xl font-bold">{summary.totalAsistentes}</p>
+              </div>
+              <div className="rounded-xl bg-white/10 p-2.5">
+                <Users className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-slate-200">Total de asistentes en la fecha</p>
+          </div>
         </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+        {!primaryFirst && (
+          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 to-slate-700 p-4 text-white shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-200">
+                  Total asistentes
+                </p>
+                <p className="mt-3 text-3xl font-bold">{summary.totalAsistentes}</p>
+              </div>
+              <div className="rounded-xl bg-white/10 p-2.5">
+                <Users className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-slate-200">Fecha seleccionada: {summary.fecha}</p>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-100 p-4 text-amber-950 shadow-sm">
           <div className="flex items-start justify-between gap-3">

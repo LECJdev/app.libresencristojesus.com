@@ -1,15 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useState, use } from 'react';
+import { useEffect, useMemo, useRef, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 import { apiClient } from '@/lib/api';
 import { CasaPazReportPanel } from '@/components/casa-paz/casa-paz-report-panel';
+import { useAuth } from '@/hooks/useAuth';
 import { normalizeAttendanceDateOptions } from '@/lib/attendance-date';
 import {
   getCurrentMonthValue,
   type CasaPazReportResponse,
 } from '@/lib/casa-paz-reports';
+import {
+  buildCasaPazReportExportParams,
+  downloadCasaPazReport,
+  type CasaPazReportExportResponse,
+} from '@/lib/casa-paz-report-export';
 import {
   AttendanceSummaryPanel,
   type AttendanceRedSummary,
@@ -17,6 +24,18 @@ import {
 } from '@/components/attendance/attendance-summary-panel';
 import { ArrowLeft, ExternalLink, QrCode, Search } from 'lucide-react';
 import { QRCode } from 'react-qrcode-logo';
+
+function isUnauthorizedError(error: unknown) {
+  return axios.isAxiosError(error) && error.response?.status === 401;
+}
+
+function getStoredAuthToken() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return localStorage.getItem('LC_AUTH_TOKEN')?.trim() ?? '';
+}
 
 type EstadoAsistenciaCasaPaz = 'ACTIVO' | 'INACTIVO';
 type DiaPredica =
@@ -83,6 +102,7 @@ export default function DetalleAsistenciaCasaPazPage({
 }) {
   const router = useRouter();
   const resolvedParams = use(params);
+  const { loading: authLoading, logout, user } = useAuth();
 
   const [asistencia, setAsistencia] = useState<AsistenciaCasaPaz | null>(null);
   const [registros, setRegistros] = useState<RegistroAsistencia[]>([]);
@@ -98,6 +118,13 @@ export default function DetalleAsistenciaCasaPazPage({
   const [reportMonth, setReportMonth] = useState(getCurrentMonthValue());
   const [detailReport, setDetailReport] = useState<CasaPazReportResponse | null>(null);
   const [loadingDetailReport, setLoadingDetailReport] = useState(true);
+  const [exportingReport, setExportingReport] = useState(false);
+  const baseRequestIdRef = useRef(0);
+  const registrosRequestIdRef = useRef(0);
+  const sesionRequestIdRef = useRef(0);
+  const detailReportRequestIdRef = useRef(0);
+  const exportRequestIdRef = useRef(0);
+  const sessionInvalidatedRef = useRef(false);
 
   const [search, setSearch] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
@@ -114,6 +141,33 @@ export default function DetalleAsistenciaCasaPazPage({
 
   const hasFechaSeleccionada = fecha !== '';
 
+  const invalidateSession = () => {
+    if (sessionInvalidatedRef.current) {
+      return;
+    }
+
+    sessionInvalidatedRef.current = true;
+    baseRequestIdRef.current += 1;
+    registrosRequestIdRef.current += 1;
+    sesionRequestIdRef.current += 1;
+    detailReportRequestIdRef.current += 1;
+    exportRequestIdRef.current += 1;
+    logout();
+  };
+
+  const requireAuthenticatedSession = () => {
+    if (authLoading || sessionInvalidatedRef.current) {
+      return false;
+    }
+
+    if (!user || !getStoredAuthToken()) {
+      invalidateSession();
+      return false;
+    }
+
+    return true;
+  };
+
   const getErrorStatus = (error: unknown): number | null => {
     if (typeof error !== 'object' || error === null) {
       return null;
@@ -128,6 +182,11 @@ export default function DetalleAsistenciaCasaPazPage({
   };
 
   const fetchBaseData = async () => {
+    if (!requireAuthenticatedSession()) {
+      return;
+    }
+
+    const requestId = ++baseRequestIdRef.current;
     setLoadingBase(true);
     setHasDetailAccess(null);
     try {
@@ -138,16 +197,30 @@ export default function DetalleAsistenciaCasaPazPage({
         ),
       ]);
 
+      if (requestId !== baseRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       setAsistencia(asistenciaRes.data);
       setFechasDisponibles(normalizeAttendanceDateOptions(fechasRes.data));
       setHasDetailAccess(true);
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
+      if (requestId !== baseRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       console.error(error);
       setAsistencia(null);
       setFechasDisponibles([]);
       setHasDetailAccess(false);
 
       const status = getErrorStatus(error);
+
       if (status === 403 || status === 404) {
         alert('El detalle de esta Casa de Paz no está disponible para tu cuenta.');
         router.replace('/admin/asistencias/casa-paz');
@@ -156,12 +229,24 @@ export default function DetalleAsistenciaCasaPazPage({
 
       alert('Error al cargar el detalle de la asistencia');
     } finally {
-      setLoadingBase(false);
+      if (requestId === baseRequestIdRef.current && !sessionInvalidatedRef.current) {
+        setLoadingBase(false);
+      }
     }
   };
 
   const fetchRegistros = async () => {
+    if (!requireAuthenticatedSession()) {
+      return;
+    }
+
+    const requestId = ++registrosRequestIdRef.current;
+
     if (!hasFechaSeleccionada || hasDetailAccess !== true || !asistencia) {
+      if (requestId !== registrosRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       setRegistros([]);
       setResumen(null);
       setResumenPorRed([]);
@@ -200,20 +285,45 @@ export default function DetalleAsistenciaCasaPazPage({
         ),
       ]);
 
+      if (requestId !== registrosRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       setRegistros(registrosRes.data.data);
       setResumen(resumenRes.data);
       setResumenPorRed(resumenPorRedRes.data);
       setTotalPages(registrosRes.data.totalPages || 1);
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
+      if (requestId !== registrosRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       console.error(error);
       alert('Error cargando el detalle de asistencia');
     } finally {
-      setLoadingRegistros(false);
+      if (requestId === registrosRequestIdRef.current && !sessionInvalidatedRef.current) {
+        setLoadingRegistros(false);
+      }
     }
   };
 
   const fetchSesion = async () => {
+    if (!requireAuthenticatedSession()) {
+      return;
+    }
+
+    const requestId = ++sesionRequestIdRef.current;
+
     if (!hasFechaSeleccionada || hasDetailAccess !== true || !asistencia) {
+      if (requestId !== sesionRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       setSesion(null);
       setMontoOfrenda('');
       return;
@@ -225,21 +335,48 @@ export default function DetalleAsistenciaCasaPazPage({
         { params: { fecha } },
       );
 
+      if (requestId !== sesionRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       setSesion(data);
       setMontoOfrenda(data.exists || data.montoOfrenda > 0 ? String(data.montoOfrenda) : '');
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
+      if (requestId !== sesionRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       console.error(error);
       alert('Error al cargar los valores de la sesión seleccionada');
     }
   };
 
+  const invalidateDetailReport = () => {
+    const requestId = ++detailReportRequestIdRef.current;
+    exportRequestIdRef.current += 1;
+    setDetailReport(null);
+    setLoadingDetailReport(true);
+    setExportingReport(false);
+    return requestId;
+  };
+
   const fetchDetailReport = async () => {
-    if (hasDetailAccess !== true) {
-      setDetailReport(null);
+    if (!requireAuthenticatedSession()) {
       return;
     }
 
-    setLoadingDetailReport(true);
+    const requestId = invalidateDetailReport();
+
+    if (hasDetailAccess !== true || !asistencia) {
+      setLoadingDetailReport(false);
+      return;
+    }
+
     try {
       const { data } = await apiClient.get<CasaPazReportResponse>(
         `/asistencias-casa-paz/${resolvedParams.id}/reportes`,
@@ -248,50 +385,142 @@ export default function DetalleAsistenciaCasaPazPage({
         },
       );
 
+      if (requestId !== detailReportRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       setDetailReport(data);
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
+      if (requestId !== detailReportRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       console.error(error);
       alert('Error al cargar el reporte detallado de Casa de Paz');
     } finally {
-      setLoadingDetailReport(false);
+      if (
+        requestId === detailReportRequestIdRef.current &&
+        !sessionInvalidatedRef.current
+      ) {
+        setLoadingDetailReport(false);
+      }
+    }
+  };
+
+  const handleExportReport = async (report: CasaPazReportResponse | null) => {
+    if (!report || !requireAuthenticatedSession()) {
+      return;
+    }
+
+    const reportRequestId = detailReportRequestIdRef.current;
+    const exportRequestId = ++exportRequestIdRef.current;
+    setExportingReport(true);
+    try {
+      const { data } = await apiClient.get<CasaPazReportExportResponse>(
+        `/asistencias-casa-paz/${resolvedParams.id}/reportes/export-rows`,
+        {
+          params: buildCasaPazReportExportParams(report),
+        },
+      );
+
+      if (
+        reportRequestId !== detailReportRequestIdRef.current ||
+        exportRequestId !== exportRequestIdRef.current ||
+        sessionInvalidatedRef.current
+      ) {
+        return;
+      }
+
+      downloadCasaPazReport(data);
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
+      if (
+        reportRequestId !== detailReportRequestIdRef.current ||
+        exportRequestId !== exportRequestIdRef.current ||
+        sessionInvalidatedRef.current
+      ) {
+        return;
+      }
+
+      console.error(error);
+      alert('Error al exportar el reporte de Casa de Paz');
+    } finally {
+      if (exportRequestId === exportRequestIdRef.current && !sessionInvalidatedRef.current) {
+        setExportingReport(false);
+      }
     }
   };
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       void fetchBaseData();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedParams.id]);
+  }, [authLoading, resolvedParams.id, user]);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       void fetchRegistros();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedParams.id, page, soloNuevos, fecha, submittedSearch, hasFechaSeleccionada]);
+  }, [
+    authLoading,
+    resolvedParams.id,
+    page,
+    soloNuevos,
+    fecha,
+    submittedSearch,
+    hasFechaSeleccionada,
+    hasDetailAccess,
+    user,
+  ]);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       void fetchSesion();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedParams.id, fecha, hasFechaSeleccionada]);
+  }, [authLoading, resolvedParams.id, fecha, hasFechaSeleccionada, hasDetailAccess, user]);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       void fetchDetailReport();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedParams.id, reportMonth, hasDetailAccess]);
+  }, [authLoading, resolvedParams.id, reportMonth, hasDetailAccess, user]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,6 +554,11 @@ export default function DetalleAsistenciaCasaPazPage({
       return;
     }
 
+    if (!requireAuthenticatedSession()) {
+      return;
+    }
+
+    const requestId = ++sesionRequestIdRef.current;
     setSavingSessionAmounts(true);
     try {
       const { data } = await apiClient.put<CasaPazSesion>(
@@ -334,6 +568,11 @@ export default function DetalleAsistenciaCasaPazPage({
           montoOfrenda: parsedOffering,
         },
       );
+
+      if (requestId !== sesionRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       setSesion(data);
       setMontoOfrenda(String(data.montoOfrenda));
       setFechasDisponibles((current) =>
@@ -342,10 +581,21 @@ export default function DetalleAsistenciaCasaPazPage({
         ),
       );
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        invalidateSession();
+        return;
+      }
+
+      if (requestId !== sesionRequestIdRef.current || sessionInvalidatedRef.current) {
+        return;
+      }
+
       console.error(error);
       alert('Error al guardar los valores de la sesión');
     } finally {
-      setSavingSessionAmounts(false);
+      if (requestId === sesionRequestIdRef.current && !sessionInvalidatedRef.current) {
+        setSavingSessionAmounts(false);
+      }
     }
   };
 
@@ -459,7 +709,10 @@ export default function DetalleAsistenciaCasaPazPage({
                 <input
                   type="month"
                   value={reportMonth}
-                  onChange={(e) => setReportMonth(e.target.value)}
+                  onChange={(e) => {
+                    invalidateDetailReport();
+                    setReportMonth(e.target.value);
+                  }}
                   className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
                 />
               </label>
@@ -471,6 +724,8 @@ export default function DetalleAsistenciaCasaPazPage({
               report={detailReport}
               loading={loadingDetailReport}
               candidateLimit={4}
+              onExport={() => void handleExportReport(detailReport)}
+              exporting={exportingReport}
             />
           </div>
 

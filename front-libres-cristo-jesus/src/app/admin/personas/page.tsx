@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { apiClient } from '@/lib/api';
-import { Plus, Trash2, Edit2, Save, X, Users, Search, ShieldPlus, House } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Users, Search, ShieldPlus, House, Download } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { normalizeRoles, ROLE_COLORS, ROLE_LABELS, type UserRole } from '@/lib/roles';
+import { handlePersonasExport } from '@/lib/personas-export';
 
 interface Persona {
   id: string;
@@ -27,8 +29,15 @@ interface Persona {
 
 interface SelectOption { id: string; nombre?: string; nombres?: string; apellidos?: string; }
 
+const SESSION_ERROR_MESSAGE =
+  'Tu sesión expiró o no es válida. Inicia sesión nuevamente para continuar.';
+
+function isUnauthorizedError(error: unknown) {
+  return axios.isAxiosError(error) && error.response?.status === 401;
+}
+
 export default function PersonasPage() {
-  const { canAssignCasaDePazLeader, canDeleteData, isSuperAdmin } = useAuth();
+  const { canAssignCasaDePazLeader, canDeleteData, isSuperAdmin, logout } = useAuth();
   const [items, setItems] = useState<Persona[]>([]);
   const [redes, setRedes] = useState<SelectOption[]>([]);
   const [personas, setPersonas] = useState<SelectOption[]>([]);
@@ -36,6 +45,9 @@ export default function PersonasPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [redFilter, setRedFilter] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [form, setForm] = useState({
     nombres: '', apellidos: '', celular: '', documento: '', tipoDocumento: 'C.C', genero: '',
     edad: '', fechaNacimiento: '', direccion: '', correo: '', barrio: '', redId: '', invitadoPorId: ''
@@ -97,6 +109,27 @@ export default function PersonasPage() {
     catch { alert('Error al eliminar'); }
   };
 
+  const handleExport = async () => {
+    setExportError(null);
+    setExporting(true);
+
+    try {
+      await handlePersonasExport(apiClient);
+    } catch (error) {
+      console.error(error);
+
+      if (isUnauthorizedError(error)) {
+        setExportError(SESSION_ERROR_MESSAGE);
+        logout();
+        return;
+      }
+
+      setExportError('No se pudo descargar el Excel de personas. Intenta nuevamente.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handlePromote = async (personaId: string) => {
     if (!isSuperAdmin) return;
     if (!confirm('¿Promover esta persona a Personal Administrativo? Su acceso inicial será con correo + documento.')) return;
@@ -131,9 +164,14 @@ export default function PersonasPage() {
     normalizeRoles({ rol: persona.rol, roles: persona.roles }).includes('LIDER_CASA_DE_PAZ');
 
   const filtered = items.filter(p => {
-    if (!searchTerm) return true;
-    const q = searchTerm.toLowerCase();
-    return (p.nombres?.toLowerCase().includes(q)) || (p.apellidos?.toLowerCase().includes(q)) || (p.celular?.includes(q)) || (p.documento?.includes(q));
+    const matchesSearch = !searchTerm || (() => {
+      const q = searchTerm.toLowerCase();
+      return (p.nombres?.toLowerCase().includes(q)) || (p.apellidos?.toLowerCase().includes(q)) || (p.celular?.includes(q)) || (p.documento?.includes(q));
+    })();
+    const matchesRed = !redFilter
+      || (redFilter === '__none__' ? !p.red : p.red?.id === redFilter);
+
+    return matchesSearch && matchesRed;
   });
 
   if (loading) return <div className="p-4 text-center text-slate-500 sm:p-6 lg:p-8">Cargando...</div>;
@@ -148,15 +186,35 @@ export default function PersonasPage() {
             <p className="text-slate-500 text-sm">Registra y gestiona los integrantes de la iglesia.</p>
           </div>
         </div>
-        {!showForm && (
-          <button onClick={() => { resetForm(); setShowForm(true); }}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-800 sm:w-auto">
-            <Plus className="h-4 w-4" /> Nueva Persona
-          </button>
-        )}
-      </div>
+         {!showForm && (
+           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+             <button
+               type="button"
+               onClick={() => void handleExport()}
+               disabled={exporting}
+               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+             >
+               <Download className="h-4 w-4" />
+               {exporting ? 'Exportando...' : 'Descargar Excel'}
+             </button>
+             <button
+               type="button"
+               onClick={() => { resetForm(); setShowForm(true); }}
+               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-800 sm:w-auto"
+             >
+               <Plus className="h-4 w-4" /> Nueva Persona
+             </button>
+           </div>
+         )}
+       </div>
 
-      {showForm && (
+       {exportError ? (
+         <p role="alert" className="-mt-2 mb-4 text-sm text-red-600">
+           {exportError}
+         </p>
+       ) : null}
+
+       {showForm && (
         <form onSubmit={handleSubmit} className="mb-6 space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow sm:p-6">
           <h2 className="font-semibold text-slate-800">{editingId ? 'Editar Persona' : 'Registrar Nueva Persona'}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -247,10 +305,26 @@ export default function PersonasPage() {
       )}
 
       {/* Buscador */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <input type="text" placeholder="Buscar por nombre o celular..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm text-slate-900 bg-white placeholder:text-slate-400" />
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_16rem]">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input type="text" placeholder="Buscar por nombre o celular..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm text-slate-900 bg-white placeholder:text-slate-400" />
+        </div>
+        <select
+          value={redFilter}
+          onChange={e => setRedFilter(e.target.value)}
+          aria-label="Filtrar personas por red"
+          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+        >
+          <option value="">Todas las redes</option>
+          <option value="__none__">Sin red asignada</option>
+          {redes.map((red) => (
+            <option key={red.id} value={red.id}>
+              {red.nombre || red.id}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">

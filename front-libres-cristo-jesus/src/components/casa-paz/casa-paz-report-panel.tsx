@@ -6,7 +6,7 @@ import type {
   CasaPazReportResponse,
 } from '@/lib/casa-paz-reports';
 import { formatCurrency, formatDateLabel } from '@/lib/casa-paz-reports';
-import { BarChart3, Coins, Home, UserPlus, Users } from 'lucide-react';
+import { BarChart3, Coins, Download, Home, UserPlus, Users } from 'lucide-react';
 
 interface CasaPazReportPanelProps {
   title: string;
@@ -15,6 +15,8 @@ interface CasaPazReportPanelProps {
   loading?: boolean;
   emptyMessage?: string;
   candidateLimit?: number;
+  onExport?: () => void;
+  exporting?: boolean;
 }
 
 function formatScopeLabel(scope: CasaPazReportResponse['scope']) {
@@ -168,6 +170,8 @@ export function CasaPazReportPanel({
   loading = false,
   emptyMessage = 'Aún no hay datos disponibles para este reporte.',
   candidateLimit = 6,
+  onExport,
+  exporting = false,
 }: CasaPazReportPanelProps) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-slate-50/70 p-5 shadow-sm">
@@ -177,8 +181,21 @@ export function CasaPazReportPanel({
           <p className="text-sm text-slate-500">{description}</p>
         </div>
         {report ? (
-          <div className="text-xs text-slate-500">
-            Alcance: <span className="font-medium text-slate-700">{formatScopeLabel(report.scope)}</span>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <div className="text-xs text-slate-500">
+              Alcance: <span className="font-medium text-slate-700">{formatScopeLabel(report.scope)}</span>
+            </div>
+            {onExport ? (
+              <button
+                type="button"
+                onClick={onExport}
+                disabled={loading || exporting}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                {exporting ? 'Exportando...' : 'Exportar Excel'}
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>

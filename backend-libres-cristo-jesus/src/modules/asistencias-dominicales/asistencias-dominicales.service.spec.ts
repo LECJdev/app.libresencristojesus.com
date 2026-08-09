@@ -6,6 +6,8 @@ import { EstadoAsistenciaDominical } from '../../common/enums/estado-asistencia-
 import { Persona } from '../personas/persona.entity';
 import { Red } from '../redes/red.entity';
 import { Sede } from '../sedes/sede.entity';
+import { CasaDePaz } from '../casas-de-paz/casa-de-paz.entity';
+import { AsistenciaCasaPazQr } from '../asistencias-casa-paz/asistencia-casa-paz-qr.entity';
 import { AsistenciaDominical } from './asistencia-dominical.entity';
 import { AsistenciasDominicalesService } from './asistencias-dominicales.service';
 import { RegistroAsistenciaDominical } from './registro-asistencia-dominical.entity';
@@ -13,7 +15,20 @@ import { RegistroAsistenciaDominical } from './registro-asistencia-dominical.ent
 describe('AsistenciasDominicalesService', () => {
   let service: AsistenciasDominicalesService;
 
-  const asistenciaDominicalRepo = { findOne: jest.fn() };
+  const reportLinkQueryBuilder = {
+    leftJoin: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(),
+    getRawOne: jest.fn(),
+  };
+  const asistenciaDominicalRepo = {
+    findOne: jest.fn(),
+    createQueryBuilder: jest.fn(() => reportLinkQueryBuilder),
+  };
   const registroQueryBuilder = {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
@@ -28,6 +43,7 @@ describe('AsistenciasDominicalesService', () => {
     groupBy: jest.fn().mockReturnThis(),
     getManyAndCount: jest.fn(),
     getRawMany: jest.fn(),
+    getRawOne: jest.fn(),
   };
   const exportQueryBuilder = {
     leftJoin: jest.fn().mockReturnThis(),
@@ -55,6 +71,36 @@ describe('AsistenciasDominicalesService', () => {
     findOne: jest.fn(),
     save: jest.fn(),
     update: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+  const personaReportQueryBuilder = {
+    leftJoin: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    getRawOne: jest.fn(),
+  };
+  const legacyCasaQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(),
+  };
+  const qrCasaQueryBuilder = {
+    leftJoin: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(),
+  };
+  const casaDePazRepo = {
+    createQueryBuilder: jest.fn(() => legacyCasaQueryBuilder),
+  };
+  const asistenciaCasaPazQrRepo = {
+    createQueryBuilder: jest.fn(() => qrCasaQueryBuilder),
   };
 
   const asistencia = {
@@ -66,11 +112,32 @@ describe('AsistenciasDominicalesService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     asistenciaDominicalRepo.findOne.mockResolvedValue(asistencia);
+    asistenciaDominicalRepo.createQueryBuilder.mockReturnValue(
+      reportLinkQueryBuilder,
+    );
+    reportLinkQueryBuilder.getRawMany.mockResolvedValue([]);
+    reportLinkQueryBuilder.getRawOne.mockResolvedValue({
+      id: 'asistencia-1',
+      nombre: 'Domingo Norte',
+      estado: EstadoAsistenciaDominical.ACTIVO,
+      diaRegistro: DiaPredica.DOMINGO,
+      sedeId: 'sede-1',
+      sedeNombre: 'Sede Norte',
+    });
     registroDominicalRepo.createQueryBuilder.mockReturnValue(
       registroQueryBuilder,
     );
     registroQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
     registroQueryBuilder.getRawMany.mockResolvedValue([]);
+    registroQueryBuilder.getRawOne.mockResolvedValue({ id: 'registro-1' });
+    personaRepo.createQueryBuilder.mockReturnValue(personaReportQueryBuilder);
+    personaReportQueryBuilder.getRawOne.mockResolvedValue(null);
+    casaDePazRepo.createQueryBuilder.mockReturnValue(legacyCasaQueryBuilder);
+    legacyCasaQueryBuilder.getRawMany.mockResolvedValue([]);
+    asistenciaCasaPazQrRepo.createQueryBuilder.mockReturnValue(
+      qrCasaQueryBuilder,
+    );
+    qrCasaQueryBuilder.getRawMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -86,6 +153,11 @@ describe('AsistenciasDominicalesService', () => {
         { provide: getRepositoryToken(Sede), useValue: sedeRepo },
         { provide: getRepositoryToken(Red), useValue: redRepo },
         { provide: getRepositoryToken(Persona), useValue: personaRepo },
+        { provide: getRepositoryToken(CasaDePaz), useValue: casaDePazRepo },
+        {
+          provide: getRepositoryToken(AsistenciaCasaPazQr),
+          useValue: asistenciaCasaPazQrRepo,
+        },
       ],
     }).compile();
 
@@ -99,6 +171,195 @@ describe('AsistenciasDominicalesService', () => {
     jest
       .spyOn(service as never, 'getCurrentDateString')
       .mockReturnValue('2026-06-13');
+  });
+
+  it('filters report dates, groups the unassigned Red bucket, and builds a deduplicated matrix', async () => {
+    registroQueryBuilder.getRawMany.mockResolvedValue([
+      {
+        fecha: '2026-01-04',
+        esNuevo: true,
+        personaId: 'persona-1',
+        nombres: 'Ana',
+        apellidos: 'Pérez',
+        redId: null,
+        redNombre: null,
+      },
+      {
+        fecha: '2026-01-11',
+        esNuevo: false,
+        personaId: 'persona-1',
+        nombres: 'Ana',
+        apellidos: 'Pérez',
+        redId: 'red-1',
+        redNombre: 'Red Norte',
+      },
+      {
+        fecha: '2026-01-11',
+        esNuevo: true,
+        personaId: 'persona-2',
+        nombres: 'Luis',
+        apellidos: 'Gómez',
+        redId: 'red-1',
+        redNombre: 'Red Norte',
+      },
+    ]);
+
+    const result = await service.findReport('asistencia-1', {
+      monthFrom: '2026-01',
+      monthTo: '2026-01',
+    });
+
+    expect(registroQueryBuilder.andWhere).toHaveBeenCalledWith(
+      'registro.fechaRegistro >= :monthFromStart',
+      { monthFromStart: '2026-01-01' },
+    );
+    expect(registroQueryBuilder.andWhere).toHaveBeenCalledWith(
+      'registro.fechaRegistro < :monthToEnd',
+      { monthToEnd: '2026-02-01' },
+    );
+    expect(result.attendanceByDate).toEqual([
+      { fecha: '2026-01-04', totalAsistentes: 1, totalNuevos: 1 },
+      { fecha: '2026-01-11', totalAsistentes: 2, totalNuevos: 1 },
+    ]);
+    expect(result.attendanceByRed).toEqual([
+      { idRed: 'red-1', nombreRed: 'Red Norte', totalAsistentes: 2 },
+      { idRed: null, nombreRed: null, totalAsistentes: 1 },
+    ]);
+    expect(result.people).toEqual([
+      {
+        id: 'persona-2',
+        nombres: 'Luis',
+        apellidos: 'Gómez',
+        attendanceByDate: { '2026-01-11': true },
+      },
+      {
+        id: 'persona-1',
+        nombres: 'Ana',
+        apellidos: 'Pérez',
+        attendanceByDate: { '2026-01-04': true, '2026-01-11': true },
+      },
+    ]);
+  });
+
+  it('returns safe report link metadata without QR credentials', async () => {
+    reportLinkQueryBuilder.getRawMany.mockResolvedValue([
+      {
+        id: 'asistencia-1',
+        nombre: 'Domingo Norte',
+        estado: EstadoAsistenciaDominical.ACTIVO,
+        diaRegistro: DiaPredica.DOMINGO,
+        sedeId: 'sede-1',
+        sedeNombre: 'Sede Norte',
+      },
+    ]);
+
+    const result = await service.findReportLinks();
+
+    expect(result).toEqual([
+      {
+        id: 'asistencia-1',
+        nombre: 'Domingo Norte',
+        estado: EstadoAsistenciaDominical.ACTIVO,
+        diaRegistro: DiaPredica.DOMINGO,
+        sede: { id: 'sede-1', nombre: 'Sede Norte' },
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain('qrToken');
+  });
+
+  it('requires registration in the selected Dominical before loading person details', async () => {
+    registroQueryBuilder.getRawOne.mockResolvedValue(null);
+
+    await expect(
+      service.findReportPerson('asistencia-1', 'persona-missing'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(personaRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('returns the safe profile allowlist and both Casa de Paz responsibility sources', async () => {
+    registroQueryBuilder.getRawOne.mockResolvedValue({ id: 'registro-1' });
+    personaReportQueryBuilder.getRawOne.mockResolvedValue({
+      id: 'persona-1',
+      nombres: 'Ana',
+      apellidos: 'Pérez',
+      edad: '31',
+      celular: '3001234567',
+      tipoDocumento: 'CC',
+      documento: '1010',
+      genero: 'FEMENINO',
+      direccion: 'Calle 1',
+      correo: 'ana@example.com',
+      encuentro: true,
+      rol: 'INTEGRANTE',
+      roles: ['INTEGRANTE', 'LIDER_CASA_DE_PAZ'],
+      barrio: 'Centro',
+      departamento: 'Cundinamarca',
+      ciudad: 'Bogotá',
+      fechaNacimiento: '1995-01-02',
+      idRed: 'red-1',
+      redId: 'red-1',
+      redNombre: 'Red Norte',
+      redDetalles: 'Detalle',
+      redIdSede: 'sede-1',
+      sedeId: 'sede-1',
+      sedeNombre: 'Sede Norte',
+      sedeDireccion: 'Carrera 1',
+      invitadoPorId: 'persona-2',
+      invitadoPorNombres: 'Luis',
+      invitadoPorApellidos: 'Gómez',
+      fechaCreacion: '2026-01-01T00:00:00.000Z',
+      fechaModificacion: '2026-01-03T00:00:00.000Z',
+    });
+    legacyCasaQueryBuilder.getRawMany.mockResolvedValue([
+      {
+        id: 'casa-legacy',
+        direccion: 'Calle 10',
+        detalle: 'Casa histórica',
+        activa: true,
+        diaDePredica: DiaPredica.DOMINGO,
+        idDistrito: 'distrito-1',
+      },
+    ]);
+    qrCasaQueryBuilder.getRawMany.mockResolvedValue([
+      {
+        id: 'casa-qr',
+        nombre: 'Casa Norte',
+        estado: 'ACTIVO',
+        diaRegistro: DiaPredica.DOMINGO,
+        direccionCasa: 'Carrera 2',
+        idRed: 'red-1',
+        redNombre: 'Red Norte',
+        idPersonaACargo: 'persona-1',
+        idAnfitrion: null,
+        idLiderPrincipal: 'persona-1',
+      },
+    ]);
+
+    const result = await service.findReportPerson('asistencia-1', 'persona-1');
+    const serialized = JSON.stringify(result);
+
+    expect(result.persona.red?.sede).toEqual({
+      id: 'sede-1',
+      nombre: 'Sede Norte',
+      direccion: 'Carrera 1',
+    });
+    expect(result.persona.roles).toEqual(['LIDER_CASA_DE_PAZ', 'INTEGRANTE']);
+    expect(result.casaDePaz.legacy).toHaveLength(1);
+    expect(result.casaDePaz.qr[0]?.roles).toEqual([
+      'personaACargo',
+      'liderPrincipal',
+    ]);
+    const selectedProfileFields = [
+      ...(personaReportQueryBuilder.select.mock.calls as unknown[][]),
+      ...(personaReportQueryBuilder.addSelect.mock.calls as unknown[][]),
+    ]
+      .flat()
+      .map(String)
+      .join(' ');
+    expect(selectedProfileFields).not.toMatch(/password|qrToken/);
+    expect(result).not.toHaveProperty('password');
+    expect(serialized).not.toContain('qrToken');
+    expect(serialized).not.toContain('password');
   });
 
   it('registers an existing person by document and computes missing profile fields', async () => {

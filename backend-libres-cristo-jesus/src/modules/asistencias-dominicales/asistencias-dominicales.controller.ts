@@ -13,7 +13,11 @@ import { AsistenciasDominicalesService } from './asistencias-dominicales.service
 import type {
   CompletePublicProfileDto,
   CreateAsistenciaDominicalDto,
+  DominicalPersonDetailResponse,
   DominicalAttendanceExportResponse,
+  DominicalReportLinkDto,
+  DominicalReportQuery,
+  DominicalReportResponse,
   ListAsistenciasDominicalesQuery,
   ListRegistrosDominicalesQuery,
   RegistrarAsistenciaPublicaDto,
@@ -31,6 +35,30 @@ export class AsistenciasDominicalesController {
   constructor(
     private readonly asistenciasDominicalesService: AsistenciasDominicalesService,
   ) {}
+
+  @AdminReadAccess()
+  @Get('reportes/links')
+  findReportLinks(): Promise<DominicalReportLinkDto[]> {
+    return this.asistenciasDominicalesService.findReportLinks();
+  }
+
+  @AdminReadAccess()
+  @Get(':id/reportes')
+  findReport(
+    @Param('id') id: string,
+    @Query() query: DominicalReportQuery,
+  ): Promise<DominicalReportResponse> {
+    return this.asistenciasDominicalesService.findReport(id, query);
+  }
+
+  @AdminReadAccess()
+  @Get(':id/reportes/personas/:personaId')
+  findReportPerson(
+    @Param('id') id: string,
+    @Param('personaId') personaId: string,
+  ): Promise<DominicalPersonDetailResponse> {
+    return this.asistenciasDominicalesService.findReportPerson(id, personaId);
+  }
 
   @Get()
   findAll(@Query() query: ListAsistenciasDominicalesQuery): Promise<unknown> {

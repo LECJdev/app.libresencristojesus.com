@@ -9,6 +9,9 @@ import { AsistenciasDominicalesService } from './asistencias-dominicales.service
 describe('AsistenciasDominicalesController', () => {
   const service = {
     exportRegistros: jest.fn(),
+    findReportLinks: jest.fn(),
+    findReport: jest.fn(),
+    findReportPerson: jest.fn(),
     findResumenPorMesByAsistencia: jest.fn(),
   } as unknown as jest.Mocked<AsistenciasDominicalesService>;
   const controller = new AsistenciasDominicalesController(service);
@@ -77,5 +80,50 @@ describe('AsistenciasDominicalesController', () => {
     );
     /* eslint-enable @typescript-eslint/unbound-method */
     expect(result).toEqual(expected);
+  });
+
+  it('protects scoped report and person detail routes with admin read guards', () => {
+    /* eslint-disable @typescript-eslint/unbound-method */
+    for (const handler of [
+      AsistenciasDominicalesController.prototype.findReport,
+      AsistenciasDominicalesController.prototype.findReportPerson,
+    ]) {
+      expect(Reflect.getMetadata(ROLES_KEY, handler)).toEqual(
+        ADMIN_WRITE_ROLES,
+      );
+      expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
+        JwtAuthGuard,
+        RolesGuard,
+      ]);
+    }
+    /* eslint-enable @typescript-eslint/unbound-method */
+  });
+
+  it('delegates the scoped report and person detail requests', async () => {
+    const report = { people: [] };
+    const person = { persona: {}, casaDePaz: { legacy: [], qr: [] } };
+    service.findReport.mockResolvedValue(report as never);
+    service.findReportPerson.mockResolvedValue(person as never);
+
+    await expect(
+      controller.findReport('asistencia-1', {
+        monthFrom: '2026-01',
+        monthTo: '2026-02',
+      }),
+    ).resolves.toEqual(report);
+    await expect(
+      controller.findReportPerson('asistencia-1', 'persona-1'),
+    ).resolves.toEqual(person);
+
+    /* eslint-disable @typescript-eslint/unbound-method */
+    expect(service.findReport).toHaveBeenCalledWith('asistencia-1', {
+      monthFrom: '2026-01',
+      monthTo: '2026-02',
+    });
+    expect(service.findReportPerson).toHaveBeenCalledWith(
+      'asistencia-1',
+      'persona-1',
+    );
+    /* eslint-enable @typescript-eslint/unbound-method */
   });
 });

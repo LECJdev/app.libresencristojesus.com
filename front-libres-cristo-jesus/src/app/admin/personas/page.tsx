@@ -7,6 +7,7 @@ import { Plus, Trash2, Edit2, Save, X, Users, Search, ShieldPlus, House, Downloa
 import { useAuth } from '@/hooks/useAuth';
 import { normalizeRoles, ROLE_COLORS, ROLE_LABELS, type UserRole } from '@/lib/roles';
 import { handlePersonasExport } from '@/lib/personas-export';
+import TableScrollHint from '@/components/TableScrollHint';
 
 interface Persona {
   id: string;
@@ -327,9 +328,10 @@ export default function PersonasPage() {
         </select>
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+      <TableScrollHint />
+      <div className="min-w-0 max-w-full overflow-x-auto pb-2">
         <div className="min-w-full rounded-lg border border-slate-200 bg-white shadow">
-        <table className="min-w-[820px] w-full text-left text-sm">
+        <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
             <tr>
               <th className="px-6 py-4 font-semibold">Nombre Completo</th>
@@ -366,7 +368,7 @@ export default function PersonasPage() {
                     {canAssignCasaDePazLeader && !hasCasaDePazLeaderRole(item) && item.documento && item.correo && (
                       <button
                         onClick={() => handleAssignCasaDePazLeader(item.id)}
-                        className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-rose-600 md:min-h-9 md:min-w-9"
                         title="Assign Casa de Paz leader access"
                       >
                         <House className="h-4 w-4" />
@@ -375,15 +377,15 @@ export default function PersonasPage() {
                     {isSuperAdmin && item.rol === 'INTEGRANTE' && item.documento && item.correo && (
                       <button
                         onClick={() => handlePromote(item.id)}
-                        className="p-2 text-slate-400 hover:text-amber-600 transition-colors"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-amber-600 md:min-h-9 md:min-w-9"
                         title="Promover a Personal Administrativo (correo + documento)"
                       >
                         <ShieldPlus className="h-4 w-4" />
                       </button>
                     )}
-                    <button onClick={() => handleEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Editar"><Edit2 className="h-4 w-4" /></button>
+                    <button onClick={() => handleEdit(item)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-blue-600 md:min-h-9 md:min-w-9" title="Editar"><Edit2 className="h-4 w-4" /></button>
                     {canDeleteData && (
-                      <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => handleDelete(item.id)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-red-600 md:min-h-9 md:min-w-9" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
                     )}
                   </div>
                 </td>

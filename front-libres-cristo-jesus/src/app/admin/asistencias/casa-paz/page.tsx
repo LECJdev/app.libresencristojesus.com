@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { CasaPazReportPanel } from '@/components/casa-paz/casa-paz-report-panel';
 import QrPdfDownload from '@/components/QrPdfDownload';
+import TableScrollHint from '@/components/TableScrollHint';
 import { useAuth } from '@/hooks/useAuth';
 import {
   buildPersonaName,
@@ -175,7 +176,7 @@ function SearchablePersonaSelect({
   const canClear = !disabled && !required && Boolean(value || query);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative min-w-0">
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       <div className="space-y-2">
         <div className="relative">
@@ -212,7 +213,7 @@ function SearchablePersonaSelect({
                 setQuery('');
                 setIsOpen(false);
               }}
-              className="absolute inset-y-0 right-2 flex items-center text-slate-400 hover:text-slate-600"
+              className="absolute inset-y-0 right-1 inline-flex w-11 items-center justify-center rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600"
               aria-label={`Limpiar ${label}`}
             >
               <X className="h-4 w-4" />
@@ -230,7 +231,7 @@ function SearchablePersonaSelect({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect('')}
-                className="w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
+                className="min-h-11 w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
               >
                 Sin selección
               </button>
@@ -246,7 +247,7 @@ function SearchablePersonaSelect({
                   aria-selected={isSelected}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleSelect(persona.id)}
-                  className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-50 ${
+                  className={`min-h-11 w-full break-words px-3 py-2 text-left text-sm hover:bg-slate-50 ${
                     isSelected ? 'bg-slate-100 text-slate-900 font-medium' : 'text-slate-700'
                   }`}
                 >
@@ -821,7 +822,7 @@ export default function AsistenciasCasaPazPage() {
           type="button"
           onClick={openCreate}
           disabled={loadingFormOptions}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Plus className="h-4 w-4" />
           {loadingFormOptions ? 'Cargando opciones...' : 'Nueva Asistencia'}
@@ -890,14 +891,15 @@ export default function AsistenciasCasaPazPage() {
         </div>
         <button
           type="submit"
-          className="px-4 py-2 border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="min-h-11 w-full rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
         >
           Buscar
         </button>
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow">
-        <table className="min-w-[820px] w-full text-left text-sm">
+      <TableScrollHint />
+      <div className="min-w-0 max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-white shadow">
+        <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
             <tr>
               <th className="px-6 py-4 font-semibold">Nombre</th>
@@ -951,21 +953,21 @@ export default function AsistenciasCasaPazPage() {
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => goToDetail(item.id)}
-                        className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-blue-600 md:min-h-9 md:min-w-9"
                         title="Detalle"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => openEdit(item)}
-                        className="p-2 text-slate-400 hover:text-orange-600 transition-colors"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-orange-600 md:min-h-9 md:min-w-9"
                         title="Editar"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleToggleEstado(item)}
-                        className="p-2 text-slate-400 hover:text-purple-600 transition-colors"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-purple-600 md:min-h-9 md:min-w-9"
                         title="Activar / Desactivar"
                       >
                         <Power className="h-4 w-4" />
@@ -973,7 +975,7 @@ export default function AsistenciasCasaPazPage() {
                       {canDeleteData && (
                         <button
                           onClick={() => handleDelete(item.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-red-600 md:min-h-9 md:min-w-9"
                           title="Eliminar"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -992,7 +994,7 @@ export default function AsistenciasCasaPazPage() {
         <button
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           disabled={page === 1}
-          className="px-3 py-1.5 border border-slate-300 rounded-md disabled:opacity-50"
+          className="min-h-11 rounded-md border border-slate-300 px-3 py-1.5 disabled:opacity-50"
         >
           Anterior
         </button>
@@ -1002,32 +1004,36 @@ export default function AsistenciasCasaPazPage() {
         <button
           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           disabled={page >= totalPages}
-          className="px-3 py-1.5 border border-slate-300 rounded-md disabled:opacity-50"
+          className="min-h-11 rounded-md border border-slate-300 px-3 py-1.5 disabled:opacity-50"
         >
           Siguiente
         </button>
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/40 p-3 sm:items-center sm:p-4">
           <form
             onSubmit={handleSubmit}
-            className="w-full max-w-xl bg-white rounded-lg border border-slate-200 shadow-lg"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="casa-paz-form-title"
+            className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg sm:max-h-[calc(100dvh-2rem)]"
           >
             <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 id="casa-paz-form-title" className="min-w-0 break-words text-lg font-semibold text-slate-900">
                 {editing ? 'Editar Asistencia Casa de Paz' : 'Nueva Asistencia Casa de Paz'}
               </h2>
               <button
                 type="button"
                 onClick={closeForm}
-                className="text-slate-400 hover:text-slate-600"
+                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                aria-label="Cerrar formulario"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-4 p-4 sm:p-6">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-6">
               {redesError ? (
                 <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
                   {redesError}
@@ -1184,18 +1190,18 @@ export default function AsistenciasCasaPazPage() {
               </div>
             </div>
 
-            <div className="flex flex-col-reverse gap-2 border-t border-slate-200 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+            <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-200 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
               <button
                 type="button"
                 onClick={closeForm}
-                className="px-4 py-2 border border-slate-300 rounded-md text-sm text-slate-700 hover:bg-slate-50"
+                className="min-h-11 w-full rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 sm:w-auto"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 text-sm disabled:opacity-60"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-60 sm:w-auto"
               >
                 <Save className="h-4 w-4" />
                 {submitting ? 'Guardando...' : 'Guardar'}

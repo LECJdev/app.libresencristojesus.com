@@ -99,7 +99,7 @@ export function DominicalMonthlyAttendanceCharts({
         </div>
       </div>
 
-      <div className="overflow-x-auto pb-2">
+      <div className="min-w-0 max-w-full overflow-x-auto pb-2">
         <div className="flex min-w-max items-end gap-3" role="list" aria-label="Asistencia mensual">
           {data.map((item) => {
             const monthLabel = formatMonthLabel(item.mes);

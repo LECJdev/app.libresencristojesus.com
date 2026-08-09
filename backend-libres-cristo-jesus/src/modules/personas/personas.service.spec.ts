@@ -353,3 +353,105 @@ describe('PersonasService export rows', () => {
     );
   });
 });
+
+describe('PersonasService census rows', () => {
+  const queryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(),
+  };
+  const personaRepository = {
+    createQueryBuilder: jest.fn(() => queryBuilder),
+  } as unknown as Repository<Persona>;
+  const redRepository = {
+    findOneBy: jest.fn(),
+  } as unknown as Repository<Red>;
+  const service = new PersonasService(personaRepository, redRepository);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('requires a Red before querying census rows', async () => {
+    await expect(service.findCensoRows()).rejects.toThrow(
+      'Debes seleccionar una red',
+    );
+    expect(redRepository.findOneBy).not.toHaveBeenCalled();
+    expect(personaRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('rejects a nonexistent Red before reading people', async () => {
+    redRepository.findOneBy.mockResolvedValue(null);
+
+    await expect(service.findCensoRows('red-404')).rejects.toThrow(
+      'La red seleccionada no existe',
+    );
+    expect(redRepository.findOneBy).toHaveBeenCalledWith({ id: 'red-404' });
+    expect(personaRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('filters in SQL by the selected Red and returns only safe census columns', async () => {
+    redRepository.findOneBy.mockResolvedValue({
+      id: 'red-1',
+      nombre: 'Red Norte',
+    });
+    queryBuilder.getRawMany.mockResolvedValue([
+      {
+        nombres: 'Ana',
+        apellidos: 'Pérez',
+        documento: '123456',
+        celular: '3001234567',
+        fechaNacimiento: '1995-01-01',
+        correo: 'ana@example.com',
+        encuentro: true,
+        password: 'secret',
+        roles: ['ADMIN'],
+      },
+    ]);
+
+    const response = await service.findCensoRows('red-1');
+
+    expect(response).toEqual({
+      redId: 'red-1',
+      redNombre: 'Red Norte',
+      rows: [
+        {
+          nombres: 'Ana',
+          apellidos: 'Pérez',
+          documento: '123456',
+          celular: '3001234567',
+          fechaNacimiento: '1995-01-01',
+          correo: 'ana@example.com',
+          encuentro: true,
+        },
+      ],
+    });
+    expect(queryBuilder.where).toHaveBeenCalledWith('persona.idRed = :redId', {
+      redId: 'red-1',
+    });
+
+    const selectedAliases = [
+      queryBuilder.select.mock.calls[0][1],
+      ...queryBuilder.addSelect.mock.calls.map(
+        (call: [string, string]) => call[1],
+      ),
+    ];
+    expect(selectedAliases).toEqual([
+      'nombres',
+      'apellidos',
+      'documento',
+      'celular',
+      'fechaNacimiento',
+      'correo',
+      'encuentro',
+    ]);
+    expect(selectedAliases).not.toEqual(
+      expect.arrayContaining(['password', 'roles', 'rol', 'id']),
+    );
+    expect(response.rows[0]).not.toHaveProperty('password');
+    expect(response.rows[0]).not.toHaveProperty('roles');
+  });
+});

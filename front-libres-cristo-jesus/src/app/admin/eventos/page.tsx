@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api';
 import { Plus, Trash2, QrCode, ClipboardList, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import TableScrollHint from '@/components/TableScrollHint';
 
 interface Evento {
   id: string;
@@ -59,9 +60,10 @@ export default function EventosPage() {
         </Link>
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+      <TableScrollHint />
+      <div className="min-w-0 max-w-full overflow-x-auto pb-2">
         <div className="min-w-full rounded-lg border border-slate-200 bg-white shadow">
-        <table className="min-w-[680px] w-full text-left text-sm">
+        <table className="w-full min-w-[680px] text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
             <tr>
               <th className="px-6 py-4 font-semibold">Nombre del Evento</th>
@@ -91,20 +93,20 @@ export default function EventosPage() {
                 <td className="px-6 py-4 text-right">
                   <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
                     <Link href={`/admin/eventos/${evento.id}/asistencias`}
-                      className="p-2 text-slate-400 hover:text-green-600 transition-colors" title="Ver Asistencias">
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-green-600 md:min-h-9 md:min-w-9" title="Ver Asistencias">
                       <ClipboardList className="h-5 w-5" />
                     </Link>
                     <Link href={`/admin/eventos/${evento.id}/qr`}
-                      className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Ver QR">
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-blue-600 md:min-h-9 md:min-w-9" title="Ver QR">
                       <QrCode className="h-5 w-5" />
                     </Link>
                     <Link href={`/admin/eventos/editar/${evento.id}`}
-                      className="p-2 text-slate-400 hover:text-orange-500 transition-colors" title="Editar Evento">
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-orange-500 md:min-h-9 md:min-w-9" title="Editar Evento">
                       <Pencil className="h-5 w-5" />
                     </Link>
                     {canDeleteData && (
                       <button onClick={() => handleDelete(evento.id)}
-                        className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar">
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-red-600 md:min-h-9 md:min-w-9" title="Eliminar">
                         <Trash2 className="h-5 w-5" />
                       </button>
                     )}

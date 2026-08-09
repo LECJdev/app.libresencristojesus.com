@@ -11,6 +11,7 @@ describe('PersonasController', () => {
   const findOneForRead = jest.fn();
   const findByCelularForRead = jest.fn();
   const findExportRows = jest.fn();
+  const findCensoRows = jest.fn();
   const findByCelular = jest.fn();
   const findOne = jest.fn();
   const personasService = {
@@ -18,6 +19,7 @@ describe('PersonasController', () => {
     findOneForRead,
     findByCelularForRead,
     findExportRows,
+    findCensoRows,
     findByCelular,
     findOne,
     create: jest.fn(),
@@ -91,6 +93,24 @@ describe('PersonasController', () => {
       [JwtAuthGuard, RolesGuard],
     );
     await expect(controller.exportRows()).resolves.toEqual({ rows });
+  });
+
+  it('protects the Red census export and passes the selected Red to the service', async () => {
+    const response = {
+      redId: 'red-1',
+      redNombre: 'Red Norte',
+      rows: [{ nombres: 'Ana' }],
+    };
+    findCensoRows.mockResolvedValue(response);
+
+    expect(Reflect.getMetadata(ROLES_KEY, controller.exportCenso)).toEqual(
+      ADMIN_WRITE_ROLES,
+    );
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controller.exportCenso),
+    ).toEqual([JwtAuthGuard, RolesGuard]);
+    await expect(controller.exportCenso('red-1')).resolves.toEqual(response);
+    expect(findCensoRows).toHaveBeenCalledWith('red-1');
   });
 
   it('protects celular lookup access with admin read guards', () => {

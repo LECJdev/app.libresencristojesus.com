@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
 import { LogOut, FolderTree, ChevronDown, ChevronRight, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { ROLE_LABELS } from '@/lib/roles';
 import BrandLogo from '@/components/BrandLogo';
+
+const ADMIN_DRAWER_ID = 'admin-mobile-drawer';
+const STRUCTURE_NAV_ID = 'admin-structure-navigation';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const {
@@ -22,6 +25,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [isStructureOpen, setIsStructureOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
 
   const isAuthorizedForPath = useMemo(() => canAccessAdminPath(pathname), [canAccessAdminPath, pathname]);
 
@@ -44,12 +51,65 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [pathname]);
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
+
+    updateViewport();
+    mediaQuery.addEventListener('change', updateViewport);
+
+    return () => mediaQuery.removeEventListener('change', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = isSidebarOpen ? 'hidden' : '';
 
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = previousOverflow;
     };
   }, [isSidebarOpen]);
+
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    const focusTimeoutId = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      window.clearTimeout(focusTimeoutId);
+    };
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    if (isSidebarOpen || !previouslyFocusedElementRef.current) {
+      return;
+    }
+
+    const elementToRestore = previouslyFocusedElementRef.current;
+    previouslyFocusedElementRef.current = null;
+    const focusTimeoutId = window.setTimeout(() => {
+      if (elementToRestore.isConnected) {
+        elementToRestore.focus();
+      }
+    }, 0);
+
+    return () => window.clearTimeout(focusTimeoutId);
+  }, [isSidebarOpen]);
+
+  const openSidebar = () => {
+    previouslyFocusedElementRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : menuButtonRef.current;
+    setIsSidebarOpen(true);
+  };
 
   if (loading || !isAdmin || !isAuthorizedForPath) {
     return (
@@ -64,6 +124,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isInStructureSection = structureRoutes.some(
     (route) => pathname === route.path || pathname.startsWith(`${route.path}/`),
   );
+  const isStructureExpanded = isStructureOpen || isInStructureSection;
+  const isClosedMobileSidebar = isMobileViewport && !isSidebarOpen;
 
   return (
     <div className="min-h-screen bg-gray-100 md:flex">
@@ -76,33 +138,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       )}
 
-      {!isSidebarOpen && (
-        <button
-          type="button"
-          aria-label="Abrir menú lateral"
-          className="fixed left-3 top-3 z-30 inline-flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-lg shadow-slate-900/5 ring-1 ring-slate-950/5 md:left-4 md:top-4 md:hidden"
-          onClick={() => setIsSidebarOpen(true)}
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-      )}
+      <button
+        ref={menuButtonRef}
+        type="button"
+        aria-label="Abrir menú lateral"
+        aria-expanded={isSidebarOpen}
+        aria-controls={ADMIN_DRAWER_ID}
+        className="fixed left-3 top-3 z-30 inline-flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-lg shadow-slate-900/5 ring-1 ring-slate-950/5 md:left-4 md:top-4 md:hidden"
+        onClick={openSidebar}
+      >
+        <Menu className="h-5 w-5" />
+      </button>
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[88vw] flex-col bg-slate-900 text-white transition-transform duration-200 md:static md:z-auto md:w-64 md:max-w-none md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div
+        id={ADMIN_DRAWER_ID}
+        aria-label="Navegación del panel administrativo"
+        aria-hidden={isClosedMobileSidebar ? 'true' : undefined}
+        inert={isClosedMobileSidebar ? true : undefined}
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[88vw] flex-col bg-slate-900 text-white transition-transform duration-200 md:static md:z-auto md:w-64 md:max-w-none md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
         <div className="flex min-h-16 items-center gap-3 border-b border-slate-800 bg-slate-950 px-5 py-3 md:px-6">
           <div className="min-w-0 flex flex-col">
             <BrandLogo variant="horizontal" className="h-10 w-auto max-w-[180px] object-contain" priority />
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             aria-label="Cerrar menú lateral"
-            className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white md:hidden"
+            className="ml-auto inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white md:hidden"
             onClick={() => setIsSidebarOpen(false)}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 md:px-4 md:py-6">
+        <nav aria-label="Secciones administrativas" className="flex-1 space-y-1 overflow-y-auto px-3 py-4 md:px-4 md:py-6">
           {routes.map((route) => {
             const Icon = route.icon;
             const isActive =
@@ -113,6 +183,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={route.path}
                 href={route.path}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                    isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
                  }`}
@@ -129,6 +200,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <button
                   type="button"
                   onClick={() => setIsStructureOpen((prev) => !prev)}
+                  aria-expanded={isStructureExpanded}
+                  aria-controls={STRUCTURE_NAV_ID}
                   className="flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-1 text-xs font-semibold uppercase tracking-wider text-slate-500 transition-colors hover:text-slate-300"
                 >
                   <span className="flex items-center gap-2">
@@ -138,8 +211,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   {isStructureOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </button>
               </div>
-              {(isStructureOpen || isInStructureSection) && (
-                <div className="space-y-1">
+              {isStructureExpanded && (
+                <div id={STRUCTURE_NAV_ID} className="space-y-1">
                   {structureRoutes.map((route) => {
                     const Icon = route.icon;
                     const isActive =
@@ -148,6 +221,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <Link
                         key={route.path}
                         href={route.path}
+                        aria-current={isActive ? 'page' : undefined}
                         className={`ml-3 flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                           isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
                         }`}
@@ -174,6 +248,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <Link
                     key={route.path}
                     href={route.path}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                        isActive ? 'bg-purple-600 text-white' : 'text-purple-300 hover:bg-slate-800'
                      }`}

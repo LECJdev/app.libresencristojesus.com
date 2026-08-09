@@ -22,6 +22,7 @@ import {
   type AttendanceRedSummary,
   type AttendanceSummary,
 } from '@/components/attendance/attendance-summary-panel';
+import TableScrollHint from '@/components/TableScrollHint';
 import { ArrowLeft, ExternalLink, QrCode, Search } from 'lucide-react';
 import { QRCode } from 'react-qrcode-logo';
 
@@ -615,19 +616,20 @@ export default function DetalleAsistenciaCasaPazPage({
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-      <div className="flex items-start gap-3 sm:items-center">
+    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <Link
           href="/admin/asistencias/casa-paz"
-          className="p-2 rounded-md border border-slate-300 text-slate-500 hover:text-slate-700"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-300 text-slate-500 hover:text-slate-700"
+          aria-label="Volver a Casas de Paz"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-bold tracking-tight text-slate-900">
             {asistencia.nombre}
           </h1>
-          <p className="text-slate-500 text-sm">
+          <p className="break-words text-sm leading-5 text-slate-500">
             Red: {asistencia.red?.nombre || '—'} · Dirección: {asistencia.direccionCasa} · Día:{' '}
             {asistencia.diaRegistro} · Estado: {asistencia.estado}
           </p>
@@ -794,8 +796,8 @@ export default function DetalleAsistenciaCasaPazPage({
               </span>
             </div>
 
-          <form onSubmit={handleSearch} className="mb-4 flex flex-col gap-3 md:flex-row">
-            <div className="relative flex-1">
+          <form onSubmit={handleSearch} className="mb-4 flex flex-col gap-3 md:flex-row md:flex-wrap">
+            <div className="relative min-w-0 flex-1">
               <Search className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="text"
@@ -848,9 +850,10 @@ export default function DetalleAsistenciaCasaPazPage({
             redSummary={resumenPorRed}
           />
 
-          <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+          <TableScrollHint />
+          <div className="min-w-0 max-w-full overflow-x-auto pb-2">
             <div className="min-w-full rounded-md border border-slate-200">
-              <table className="min-w-[680px] w-full text-left text-sm">
+              <table className="w-full min-w-[680px] text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Persona</th>
@@ -915,7 +918,7 @@ export default function DetalleAsistenciaCasaPazPage({
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={!hasFechaSeleccionada || page === 1}
-              className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
+              className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
             >
               Anterior
             </button>
@@ -927,7 +930,7 @@ export default function DetalleAsistenciaCasaPazPage({
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={!hasFechaSeleccionada || page >= totalPages}
-              className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
+              className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
             >
               Siguiente
             </button>

@@ -185,7 +185,7 @@ export default function QrPdfDownload({ publicPath, fileName, title }: QrPdfDown
           <select
             value={size}
             onChange={(e) => setSize(e.target.value as QrSizeKey)}
-            className="w-full appearance-none rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
+            className="min-h-11 w-full appearance-none rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
             aria-label="Tamaño del QR"
           >
             {Object.entries(SIZE_CONFIG).map(([value, config]) => (
@@ -200,7 +200,7 @@ export default function QrPdfDownload({ publicPath, fileName, title }: QrPdfDown
           type="button"
           onClick={handleDownload}
           disabled={isDownloading || !publicUrl}
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           title="Descargar QR en PDF"
         >
           <Download className="h-4 w-4" />

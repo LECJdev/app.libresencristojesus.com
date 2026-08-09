@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api';
 import { ArrowLeft, Search, UserPlus, CheckCircle2, Eye, Pencil, X } from 'lucide-react';
 import Link from 'next/link';
 import PersonaSearchInput from '@/components/PersonaSearchInput';
+import TableScrollHint from '@/components/TableScrollHint';
 
 interface Asistencia {
   id: string;
@@ -156,8 +157,9 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
         const cols: { nombre: string }[] = c.columnas || [];
         return (
           <div className="space-y-2">
-            <div className="overflow-x-auto">
-              <table className="min-w-[480px] w-full overflow-hidden rounded border border-slate-200 text-sm">
+            <TableScrollHint />
+            <div className="min-w-0 max-w-full overflow-x-auto">
+              <table className="w-full min-w-[480px] overflow-hidden rounded border border-slate-200 text-sm">
               <thead className="bg-slate-50">
                 <tr>
                   {cols.map((col, ci) => <th key={ci} className="px-2 py-1.5 text-left text-xs font-semibold text-slate-600 border-b">{col.nombre}</th>)}
@@ -175,7 +177,7 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
                       </td>
                     ))}
                     <td className="px-1 text-center">
-                      <button type="button" className="text-red-400 hover:text-red-600 text-xs"
+                      <button type="button" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-red-400 hover:bg-red-50 hover:text-red-600 md:min-h-9 md:min-w-9"
                         onClick={() => { const r = [...rows]; r.splice(fi, 1); setValues({ ...values, [c.id]: r }); }}>✕</button>
                     </td>
                   </tr>
@@ -249,11 +251,11 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
   if (!evento) return <div className="p-4 text-center text-red-500 sm:p-6 lg:p-8">Evento no encontrado.</div>;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="min-w-0 p-4 sm:p-6 lg:p-8">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-        <Link href="/admin/eventos" className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><ArrowLeft className="h-5 w-5" /></Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{evento.nombre}</h1>
+        <Link href="/admin/eventos" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:text-slate-600" aria-label="Volver a eventos"><ArrowLeft className="h-5 w-5" /></Link>
+        <div className="min-w-0 flex-1">
+          <h1 className="break-words text-2xl font-bold tracking-tight text-slate-900">{evento.nombre}</h1>
           <p className="text-slate-500 text-sm">Registro administrativo de asistencias · {asistencias.length} registrado(s)</p>
         </div>
         <button onClick={() => { setShowRegistro(!showRegistro); setSuccessMsg(''); }}
@@ -380,9 +382,10 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
         )}
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+      <TableScrollHint />
+      <div className="min-w-0 max-w-full overflow-x-auto pb-2">
         <div className="min-w-full rounded-lg border border-slate-200 bg-white shadow">
-        <table className="min-w-max w-full whitespace-nowrap text-left text-sm">
+        <table className="w-full min-w-max whitespace-nowrap text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
             <tr>
               <th className="px-6 py-4 font-semibold">#</th>
@@ -443,10 +446,10 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
                 })}
                 <td className="px-6 py-4 text-right">
                   <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
-                    <button onClick={() => setViewingPersona(a.persona)} className="rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-blue-600" title="Ver Perfil Completo">
+                    <button onClick={() => setViewingPersona(a.persona)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-blue-600 md:min-h-9 md:min-w-9" title="Ver Perfil Completo">
                       <Eye className="h-4 w-4" />
                     </button>
-                    <button onClick={() => { setEditingAsistencia(a); setEditRespuestas(a.datosPersonalizados || {}); }} className="rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-orange-600" title="Editar Registro">
+                    <button onClick={() => { setEditingAsistencia(a); setEditRespuestas(a.datosPersonalizados || {}); }} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-orange-600 md:min-h-9 md:min-w-9" title="Editar Registro">
                       <Pencil className="h-4 w-4" />
                     </button>
                   </div>
@@ -460,13 +463,13 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
 
       {/* Modal - Ver Perfil */}
       {viewingPersona && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg border border-slate-200 shadow-lg w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between border-b p-4">
-              <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Eye className="h-5 w-5 text-blue-500" /> Perfil de Asistente</h2>
-              <button onClick={() => setViewingPersona(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-3 sm:items-center sm:p-4">
+          <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg sm:max-h-[calc(100dvh-2rem)]">
+            <div className="flex items-center justify-between gap-3 border-b p-4">
+              <h2 className="min-w-0 break-words font-semibold text-slate-800 flex items-center gap-2"><Eye className="h-5 w-5 shrink-0 text-blue-500" /> Perfil de Asistente</h2>
+              <button onClick={() => setViewingPersona(null)} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600" aria-label="Cerrar perfil"><X className="h-5 w-5" /></button>
             </div>
-            <div className="p-6 overflow-y-auto space-y-4 text-sm text-slate-700">
+            <div className="min-h-0 flex-1 overflow-y-auto space-y-4 p-6 text-sm text-slate-700">
               <div className="bg-slate-50 p-4 border border-slate-200 rounded-md text-center">
                 <p className="text-lg font-bold text-slate-900">{viewingPersona.nombres} {viewingPersona.apellidos}</p>
                 <p className="text-slate-500 font-medium tracking-wide mt-1">{viewingPersona.tipoDocumento} {viewingPersona.documento || 'Sin doc'}</p>
@@ -486,13 +489,13 @@ export default function EventoAsistenciasPage({ params }: { params: Promise<{ id
 
       {/* Modal - Editar Asistencia */}
       {editingAsistencia && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-          <form onSubmit={handleUpdate} className="bg-white rounded-lg border border-slate-200 shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Pencil className="h-5 w-5 text-orange-500" /> Editar Registro de Asistencia</h2>
-              <button type="button" onClick={() => setEditingAsistencia(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-3 sm:items-center sm:p-4">
+          <form onSubmit={handleUpdate} className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg sm:max-h-[calc(100dvh-2rem)]">
+            <div className="flex items-center justify-between gap-3 border-b p-4">
+              <h2 className="min-w-0 break-words font-semibold text-slate-800 flex items-center gap-2"><Pencil className="h-5 w-5 shrink-0 text-orange-500" /> Editar Registro de Asistencia</h2>
+              <button type="button" onClick={() => setEditingAsistencia(null)} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600" aria-label="Cerrar edición"><X className="h-5 w-5" /></button>
             </div>
-            <div className="space-y-4 overflow-y-auto p-4 sm:p-6">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               <p className="text-sm font-medium text-slate-500 mb-4 bg-orange-50 p-2 rounded">Editando a: <strong className="text-slate-900">{editingAsistencia.persona?.nombres} {editingAsistencia.persona?.apellidos}</strong></p>
               
               {evento.camposPersonalizados?.length > 0 ? evento.camposPersonalizados.map((c: any) => (

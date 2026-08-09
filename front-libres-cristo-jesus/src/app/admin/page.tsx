@@ -11,16 +11,16 @@ export default function AdminDashboard() {
   return (
     <>
       <header className="flex min-h-16 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 items-center gap-4">
           <BrandLogo variant="mark" className="h-11 w-11 object-contain" />
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Libres en Cristo Jesús</p>
+          <div className="min-w-0">
+            <p className="break-words text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Libres en Cristo Jesús</p>
             <h1 className="text-xl font-semibold text-gray-800">Panel General</h1>
           </div>
         </div>
       </header>
       
-      <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3 sm:gap-6 sm:mb-8">
           {/* Stat Cards */}
           <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -63,12 +63,12 @@ export default function AdminDashboard() {
                     <div className="mb-3 inline-flex rounded-lg bg-blue-50 p-2 text-blue-600">
                       <Icon className="h-5 w-5" />
                     </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="font-medium text-slate-900">{section.label}</h3>
-                        <p className="mt-1 text-sm text-slate-500">{section.path}</p>
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-medium text-slate-900">{section.label}</h3>
+                        <p className="mt-1 break-all text-sm text-slate-500">{section.path}</p>
                       </div>
-                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
                     </div>
                   </Link>
                 );

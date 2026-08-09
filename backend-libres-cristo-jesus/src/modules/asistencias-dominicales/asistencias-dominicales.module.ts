@@ -7,6 +7,8 @@ import { AsistenciasDominicalesService } from './asistencias-dominicales.service
 import { Sede } from '../sedes/sede.entity';
 import { Red } from '../redes/red.entity';
 import { Persona } from '../personas/persona.entity';
+import { CasaDePaz } from '../casas-de-paz/casa-de-paz.entity';
+import { AsistenciaCasaPazQr } from '../asistencias-casa-paz/asistencia-casa-paz-qr.entity';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { Persona } from '../personas/persona.entity';
       Sede,
       Red,
       Persona,
+      CasaDePaz,
+      AsistenciaCasaPazQr,
     ]),
   ],
   controllers: [AsistenciasDominicalesController],

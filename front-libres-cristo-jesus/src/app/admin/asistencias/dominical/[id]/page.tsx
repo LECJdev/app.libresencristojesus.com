@@ -9,6 +9,7 @@ import {
   DominicalMonthlyAttendanceCharts,
   type DominicalMonthlyAttendance,
 } from '@/components/attendance/dominical-monthly-attendance-charts';
+import TableScrollHint from '@/components/TableScrollHint';
 import { ArrowLeft, Download, ExternalLink, QrCode, Search } from 'lucide-react';
 import { handleDominicalExport } from '@/lib/dominical-report-export';
 import { QRCode } from 'react-qrcode-logo';
@@ -324,7 +325,7 @@ export default function DetalleAsistenciaDominicalPage({
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Link
           href="/admin/asistencias/dominical"
@@ -332,11 +333,11 @@ export default function DetalleAsistenciaDominicalPage({
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-bold tracking-tight text-slate-900">
             {asistencia.nombre}
           </h1>
-          <p className="text-slate-500 text-sm">
+          <p className="break-words text-slate-500 text-sm">
             Sede: {asistencia.sede?.nombre || '—'} · Día: {asistencia.diaRegistro} · Estado:{' '}
             {asistencia.estado}
           </p>
@@ -515,9 +516,10 @@ export default function DetalleAsistenciaDominicalPage({
             <p className="mb-4 text-sm text-red-600">{exportError}</p>
           )}
 
-          <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+          <TableScrollHint />
+          <div className="min-w-0 max-w-full overflow-x-auto pb-2">
             <div className="min-w-full rounded-md border border-slate-200">
-              <table className="min-w-[680px] w-full text-left text-sm">
+              <table className="w-full min-w-[680px] text-left text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50 text-slate-700">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Persona</th>
@@ -582,7 +584,7 @@ export default function DetalleAsistenciaDominicalPage({
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={!hasFechaSeleccionada || page === 1}
-              className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
+              className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
             >
               Anterior
             </button>
@@ -594,7 +596,7 @@ export default function DetalleAsistenciaDominicalPage({
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={!hasFechaSeleccionada || page >= totalPages}
-              className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
+              className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50"
             >
               Siguiente
             </button>

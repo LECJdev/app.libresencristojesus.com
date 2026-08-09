@@ -139,18 +139,18 @@ export default function AdminUsuarios() {
   return (
     <>
       <header className="flex min-h-16 items-center border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="rounded-lg bg-purple-50 p-2 text-purple-600">
             <ShieldCheck className="h-5 w-5" />
           </div>
-          <div>
-            <h1 className="text-xl font-semibold text-gray-800">Promoción de Personal Administrativo</h1>
-            <p className="text-sm text-gray-500">Solo el Super Administrador puede habilitar este acceso.</p>
+          <div className="min-w-0">
+            <h1 className="break-words text-xl font-semibold text-gray-800">Promoción de Personal Administrativo</h1>
+            <p className="break-words text-sm text-gray-500">Solo el Super Administrador puede habilitar este acceso.</p>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-4xl space-y-6">
           <div className="rounded-xl border border-purple-100 bg-purple-50 p-4 text-sm text-purple-900">
             Seleccioná una persona ya registrada con correo y documento. Su acceso inicial quedará habilitado con correo + documento.

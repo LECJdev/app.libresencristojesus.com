@@ -50,8 +50,8 @@ export default function PersonaSearchInput({ apiBase, onSelect }: PersonaSearchI
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative min-w-0 flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input type="text" placeholder="Buscar por documento o celular..."
             className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm text-slate-900 bg-white placeholder:text-slate-400"
@@ -59,7 +59,7 @@ export default function PersonaSearchInput({ apiBase, onSelect }: PersonaSearchI
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }} />
         </div>
         <button type="button" onClick={handleSearch} disabled={searching}
-          className="px-3 py-2 bg-slate-900 text-white rounded-md text-sm font-medium hover:bg-slate-800 shrink-0">
+          className="min-h-11 w-full shrink-0 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 sm:w-auto">
           {searching ? '...' : 'Buscar'}
         </button>
       </div>
@@ -70,11 +70,11 @@ export default function PersonaSearchInput({ apiBase, onSelect }: PersonaSearchI
         <div className="border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden">
           {results.map(p => (
             <button key={p.id} type="button"
-              className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-blue-50 transition-colors text-sm"
+              className="flex min-h-11 w-full min-w-0 flex-col items-start gap-1 px-3 py-2 text-left text-sm transition-colors hover:bg-blue-50 sm:flex-row sm:items-center sm:gap-3"
               onClick={() => onSelect(p)}>
               <User className="h-4 w-4 text-slate-400 shrink-0" />
-              <span className="font-medium text-slate-900">{p.nombres} {p.apellidos}</span>
-              <span className="text-slate-500 ml-auto">{p.celular}</span>
+              <span className="min-w-0 max-w-full break-words font-medium text-slate-900">{p.nombres} {p.apellidos}</span>
+              <span className="max-w-full break-all text-slate-500 sm:ml-auto sm:max-w-[40%] sm:text-right">{p.celular}</span>
             </button>
           ))}
         </div>

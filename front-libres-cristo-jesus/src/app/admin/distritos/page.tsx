@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import { Plus, Trash2, Edit2, Save, X, MapPin } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import TableScrollHint from '@/components/TableScrollHint';
 
 interface Distrito {
   id: string;
@@ -114,9 +115,10 @@ export default function DistritosPage() {
         </form>
       )}
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+      <TableScrollHint />
+      <div className="min-w-0 max-w-full overflow-x-auto pb-2">
         <div className="min-w-full rounded-lg border border-slate-200 bg-white shadow">
-        <table className="min-w-[680px] w-full text-left text-sm">
+        <table className="w-full min-w-[680px] text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
             <tr>
               <th className="px-6 py-4 font-semibold">ID</th>
@@ -135,9 +137,9 @@ export default function DistritosPage() {
                 <td className="px-6 py-4 text-slate-900">{item.sede?.nombre || '—'}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
-                    <button onClick={() => handleEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Editar"><Edit2 className="h-4 w-4" /></button>
+                    <button onClick={() => handleEdit(item)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-blue-600 md:min-h-9 md:min-w-9" title="Editar"><Edit2 className="h-4 w-4" /></button>
                     {canDeleteData && (
-                      <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => handleDelete(item.id)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:text-red-600 md:min-h-9 md:min-w-9" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
                     )}
                   </div>
                 </td>

@@ -7,6 +7,7 @@ import type {
 } from '@/lib/casa-paz-reports';
 import { formatCurrency, formatDateLabel } from '@/lib/casa-paz-reports';
 import { BarChart3, Coins, Download, Home, UserPlus, Users } from 'lucide-react';
+import TableScrollHint from '@/components/TableScrollHint';
 
 interface CasaPazReportPanelProps {
   title: string;
@@ -46,8 +47,8 @@ function MetricCard({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+        <div className="min-w-0">
+          <p className="break-words text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
           <p className="mt-3 text-2xl font-bold text-slate-900">{value}</p>
         </div>
         <div className="rounded-xl bg-slate-100 p-2.5 text-slate-700">{icon}</div>
@@ -112,8 +113,8 @@ function EncounterCandidatesTable({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <h3 className="text-sm font-semibold text-slate-900">Posibles candidatos a encuentro</h3>
           <p className="text-xs text-slate-500">Personas que asistieron a Casa de Paz y aún no tienen el encuentro confirmado.</p>
         </div>
@@ -125,8 +126,10 @@ function EncounterCandidatesTable({
       {visibleCandidates.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">No hay candidatos a encuentro dentro del alcance actual.</p>
       ) : (
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-[760px] w-full text-left text-sm">
+        <>
+          <TableScrollHint />
+          <div className="mt-4 min-w-0 max-w-full overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="border-b border-slate-200 text-slate-600">
               <tr>
                 <th className="px-3 py-2 font-semibold">Persona</th>
@@ -141,7 +144,7 @@ function EncounterCandidatesTable({
               {visibleCandidates.map((candidate) => (
                 <tr key={candidate.id}>
                   <td className="px-3 py-3">
-                    <div className="font-medium text-slate-900">
+                    <div className="break-words font-medium text-slate-900">
                       {`${candidate.nombres || ''} ${candidate.apellidos || ''}`.trim() || candidate.id}
                     </div>
                     <div className="text-xs text-slate-500">
@@ -156,8 +159,9 @@ function EncounterCandidatesTable({
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
@@ -174,9 +178,9 @@ export function CasaPazReportPanel({
   exporting = false,
 }: CasaPazReportPanelProps) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-slate-50/70 p-5 shadow-sm">
+    <section className="min-w-0 rounded-3xl border border-slate-200 bg-slate-50/70 p-5 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
           <p className="text-sm text-slate-500">{description}</p>
         </div>
@@ -190,7 +194,7 @@ export function CasaPazReportPanel({
                 type="button"
                 onClick={onExport}
                 disabled={loading || exporting}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Download className="h-4 w-4" />
                 {exporting ? 'Exportando...' : 'Exportar Excel'}
@@ -259,7 +263,7 @@ export function CasaPazReportPanel({
               <div className="rounded-xl bg-slate-100 p-2 text-slate-700">
                 <BarChart3 className="h-4 w-4" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-slate-900">Asistencia por fecha</h3>
                 <p className="text-xs text-slate-500">Totales diarios de asistencia, sesiones y ofrenda.</p>
               </div>
@@ -268,8 +272,10 @@ export function CasaPazReportPanel({
             {report.attendanceByDate.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">No se encontró actividad por fecha para el filtro seleccionado.</p>
             ) : (
-              <div className="mt-4 overflow-x-auto">
-                <table className="min-w-[760px] w-full text-left text-sm">
+              <>
+                <TableScrollHint />
+                <div className="mt-4 min-w-0 max-w-full overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="border-b border-slate-200 text-slate-600">
                     <tr>
                       <th className="px-3 py-2 font-semibold">Fecha</th>
@@ -295,8 +301,9 @@ export function CasaPazReportPanel({
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                </div>
+              </>
             )}
           </div>
 

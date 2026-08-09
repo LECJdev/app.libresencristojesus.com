@@ -6,12 +6,14 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   PersonasService,
   AssignCasaDePazLeaderDto,
   CreateUserDto,
+  PersonaCensoResponseDto,
   PersonaExportRowDto,
   PersonaReadDto,
   PromotePersonalAdministrativoDto,
@@ -41,6 +43,14 @@ export class PersonasController {
   @Get('export-rows')
   async exportRows(): Promise<{ rows: PersonaExportRowDto[] }> {
     return { rows: await this.personasService.findExportRows() };
+  }
+
+  @AdminReadAccess()
+  @Get('export-censo')
+  exportCenso(
+    @Query('redId') redId?: string,
+  ): Promise<PersonaCensoResponseDto> {
+    return this.personasService.findCensoRows(redId);
   }
 
   @AdminReadAccess()

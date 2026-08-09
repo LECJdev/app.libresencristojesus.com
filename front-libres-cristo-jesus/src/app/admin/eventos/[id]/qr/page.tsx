@@ -6,9 +6,14 @@ import axios from 'axios';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
+interface EventoQR {
+  nombre: string;
+  generaQr: boolean;
+}
+
 export default function EventoQRPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const [evento, setEvento] = useState<any>(null);
+  const [evento, setEvento] = useState<EventoQR | null>(null);
   const [loading, setLoading] = useState(true);
   const [publicUrl, setPublicUrl] = useState('');
 
@@ -51,18 +56,22 @@ export default function EventoQRPage({ params }: { params: Promise<{ id: string 
   };
 
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
-      <div className="mb-6 flex items-start gap-4 sm:items-center">
-        <Link href="/admin/eventos" className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+    <div className="mx-auto min-w-0 max-w-3xl p-4 sm:p-6 lg:p-8">
+      <div className="mb-6 flex items-start gap-3 sm:items-center sm:gap-4">
+        <Link
+          href="/admin/eventos"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:text-slate-600"
+          aria-label="Volver a eventos"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Código QR del Evento</h1>
-          <p className="text-slate-500">{evento.nombre}</p>
+          <p className="break-words text-slate-500">{evento.nombre}</p>
         </div>
       </div>
 
-      <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-4 shadow sm:p-8">
+      <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-4 shadow sm:p-8">
         {!evento.generaQr ? (
           <div className="text-center py-12">
             <h2 className="text-xl font-bold text-red-600 mb-2">QR Desactivado</h2>
@@ -71,7 +80,7 @@ export default function EventoQRPage({ params }: { params: Promise<{ id: string 
           </div>
         ) : (
           <>
-            <div className="bg-slate-50 p-6 rounded-2xl shadow-inner mb-8">
+            <div className="mb-8 w-full max-w-[328px] rounded-2xl bg-slate-50 p-3 shadow-inner sm:p-6 [&_canvas]:block [&_canvas]:h-auto [&_canvas]:w-full [&_canvas]:max-w-full">
               <QRCode
                 id="qr-canvas"
                 value={publicUrl}
@@ -93,7 +102,7 @@ export default function EventoQRPage({ params }: { params: Promise<{ id: string 
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:gap-4">
                 <button
                   onClick={downloadQR}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors shadow-sm font-medium"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-slate-800"
                 >
                   <Download className="h-4 w-4" /> Descargar PNG
                 </button>
@@ -101,7 +110,7 @@ export default function EventoQRPage({ params }: { params: Promise<{ id: string 
                   href={publicUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors shadow-sm font-medium"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2.5 font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
                 >
                   <ExternalLink className="h-4 w-4" /> Ir al enlace
                 </a>

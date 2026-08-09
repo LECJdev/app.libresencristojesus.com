@@ -60,6 +60,22 @@ export interface PersonaExportRowDto {
   fechaModificacion: Date | string | null;
 }
 
+export interface PersonaCensoRowDto {
+  nombres: string | null;
+  apellidos: string | null;
+  documento: string | null;
+  celular: string | null;
+  fechaNacimiento: string | null;
+  correo: string | null;
+  encuentro: boolean | null;
+}
+
+export interface PersonaCensoResponseDto {
+  redId: string;
+  redNombre: string;
+  rows: PersonaCensoRowDto[];
+}
+
 export interface PersonaReadDto {
   id: string;
   nombres: string | null;
@@ -209,6 +225,48 @@ export class PersonasService {
       fechaCreacion: row.fechaCreacion,
       fechaModificacion: row.fechaModificacion,
     }));
+  }
+
+  async findCensoRows(redId?: string): Promise<PersonaCensoResponseDto> {
+    if (!redId?.trim()) {
+      throw new BadRequestException('Debes seleccionar una red');
+    }
+
+    const safeRedId = sanitizeEntityIdOrThrow(redId, 'ID de red');
+    const red = await this.redRepository.findOneBy({ id: safeRedId });
+
+    if (!red) {
+      throw new NotFoundException('La red seleccionada no existe');
+    }
+
+    const rawRows = await this.personaRepository
+      .createQueryBuilder('persona')
+      .select('persona.nombres', 'nombres')
+      .addSelect('persona.apellidos', 'apellidos')
+      .addSelect('persona.documento', 'documento')
+      .addSelect('persona.celular', 'celular')
+      .addSelect('persona.fechaNacimiento', 'fechaNacimiento')
+      .addSelect('persona.correo', 'correo')
+      .addSelect('persona.encuentro', 'encuentro')
+      .where('persona.idRed = :redId', { redId: safeRedId })
+      .orderBy('persona.apellidos', 'ASC')
+      .addOrderBy('persona.nombres', 'ASC')
+      .addOrderBy('persona.id', 'ASC')
+      .getRawMany<PersonaCensoRowDto>();
+
+    return {
+      redId: red.id,
+      redNombre: red.nombre?.trim() || red.id,
+      rows: rawRows.map((row) => ({
+        nombres: row.nombres ?? null,
+        apellidos: row.apellidos ?? null,
+        documento: row.documento ?? null,
+        celular: row.celular ?? null,
+        fechaNacimiento: row.fechaNacimiento ?? null,
+        correo: row.correo ?? null,
+        encuentro: row.encuentro ?? null,
+      })),
+    };
   }
 
   async findOneForRead(id: string): Promise<PersonaReadDto | null> {

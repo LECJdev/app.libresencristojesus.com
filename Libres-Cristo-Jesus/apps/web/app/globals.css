@@ -1,0 +1,50 @@
+@import 'tailwindcss';
+@import '@lcj/ui/styles/tokens.css';
+
+/*
+ * Tailwind generates a utility ONLY if it finds the literal class string in a
+ * scanned file. By default it walks this app's directory and skips
+ * `node_modules` — and `@lcj/ui` reaches us as a pnpm symlink inside exactly
+ * that folder, so every class that lives ONLY in the Design System was never
+ * emitted.
+ *
+ * The symptom was silent and specific: components whose classes are ALSO
+ * written somewhere in `apps/web` (`rounded-lg`, `bg-surface`, `gap-4`) looked
+ * fine, while `<Grid>`/`<GridItem>` — whose `grid-cols-4`, `col-span-3` and
+ * `tablet:*` strings exist nowhere else — rendered as a single full-width
+ * column at every viewport. A desktop dashboard quietly laid itself out like a
+ * phone, and nothing errored.
+ *
+ * `@source` points the scanner at the real package source. It must be the
+ * SOURCE directory, not the built `dist`: the build emits JavaScript with the
+ * same strings, but pointing at both would double the scan for no gain.
+ */
+@source '../../../packages/ui/src';
+
+/*
+ * doc18 §34 / tokens.css: "v1.0 ships light only, dark mode deliberately NOT
+ * wired." The `@media (prefers-color-scheme: dark)` scaffold Next.js
+ * generates by default was removed on purpose — it would silently switch the
+ * app into an unstyled dark palette that the Design System does not support
+ * yet, contradicting that decision.
+ *
+ * No `body` rule here: `tokens.css` already sets background/foreground/
+ * font-family in its own `@layer base`, so redeclaring them would only risk
+ * drifting out of sync with the Design System.
+ */
+
+/*
+ * The one exception to the rule above: `--font-sans` is REBOUND, not
+ * redefined. tokens.css declares the family doc18 §4 mandates ('Inter', with
+ * system fallbacks) but a token cannot load a webfont, so on a machine
+ * without Inter installed the whole app quietly rendered in the system font.
+ *
+ * `--font-inter` is produced by `next/font/google` in `app/layout.tsx`, which
+ * self-hosts the files and puts the variable on <html>. Prepending it keeps
+ * the exact fallback chain tokens.css defines and only adds the real,
+ * guaranteed-present family in front of it.
+ */
+:root {
+  --font-sans:
+    var(--font-inter), 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}

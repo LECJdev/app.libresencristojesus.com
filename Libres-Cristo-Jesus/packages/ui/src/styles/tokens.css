@@ -1,0 +1,256 @@
+/*
+ * LCJ Connect — Design Tokens
+ * Source of truth: `Documentos/18 – Especificación de Componentes del Design
+ * System.md` (scales, typography, spacing, radius, shadows, icon sizes,
+ * animation durations) + `Documentos/08` (colour roles).
+ *
+ * BRAND COLOUR DECISION (supplied by the project owner):
+ * The palette comes from `Banco-imagenes/colores-proyecto.jpg`, the official
+ * "Identidad Visual Plataforma Iglesia" guide, which names every colour with
+ * a concrete hex and a semantic role.
+ *
+ * IT SUPERSEDES TWO EARLIER DECISIONS, deliberately:
+ * 1. The scales used to be SAMPLED from the logo (#0185C5 ring, #014171
+ *    wordmark) because doc18 named scales without ever giving a hex. That was
+ *    an inference made in the absence of this document. The document now
+ *    exists, so it wins.
+ * 2. doc18 §2 asked for a warm white background ("Blanco cálido. Nunca gris
+ *    oscuro."). The official guide specifies a cool #F5F7FA. The guide wins;
+ *    the neutrals moved from warm stone to cool grey to match it, since a
+ *    warm grey on a cool background reads as dirty.
+ * The gold needed no change: the sampled #d4a017 was already the exact value
+ * the guide specifies.
+ *
+ * Doc18 §28: never hardcode values in components — always use these tokens.
+ * That rule is why adopting a whole new brand palette is this one file.
+ * Doc18 §34: v1.0 ships light only, but every semantic colour is indirected
+ * through a runtime variable so a dark theme is a pure token swap.
+ */
+
+/* ---------------------------------------------------------------- *
+ * Static scales — fixed palette, identical in every theme.
+ * ---------------------------------------------------------------- */
+@theme {
+  /* Primary — the guide's three blues, with the intermediate steps filled in
+   * so components have a full ramp. Only the three anchors are official;
+   * the rest exist so a hover state never has to invent a colour. */
+  --color-primary-50: #e3f2fd; /* GUIDE "Fondo Suave" — paz, serenidad */
+  --color-primary-100: #bbdefb;
+  --color-primary-200: #90caf9;
+  --color-primary-300: #64b5f6; /* GUIDE "Azul Claro" — Secundario */
+  --color-primary-400: #42a5f5;
+  --color-primary-500: #1e88e5; /* GUIDE "Azul Principal" — conexión */
+  --color-primary-600: #1976d2;
+  --color-primary-700: #1565c0;
+  --color-primary-800: #0d47a1;
+  --color-primary-900: #0b3d6d; /* GUIDE "Azul Profundo" — Primario */
+  --color-primary-950: #072a4c;
+
+  /* Gold — the guide's "Acento" (#D4A017, fe/luz/presencia), which is also
+   * exactly the logo's cross. Unchanged: it was already right. */
+  --color-gold-50: #fdf9ed;
+  --color-gold-100: #faf0ce;
+  --color-gold-200: #f4e09d;
+  --color-gold-300: #ebc963;
+  --color-gold-400: #e0b03a;
+  --color-gold-500: #d4a017;
+  --color-gold-600: #b4850b; /* logo cross */
+  --color-gold-700: #8f6709;
+  --color-gold-800: #70510c;
+  --color-gold-900: #5c420f;
+
+  /* Neutrals — COOL, anchored on the guide's "Gris Medio" (#6B7280,
+   * equilibrio/neutralidad). They were warm stone until the official palette
+   * arrived; a warm grey against the guide's cool #F5F7FA background reads as
+   * dirty, so the whole ramp moved. Grey stays reserved for secondary text,
+   * borders and separators — never for a surface a user acts on. */
+  --color-neutral-50: #f9fafb;
+  --color-neutral-100: #f3f4f6;
+  --color-neutral-200: #e5e7eb;
+  --color-neutral-300: #d1d5db;
+  --color-neutral-400: #9ca3af;
+  --color-neutral-500: #6b7280; /* GUIDE "Gris Medio" — Neutro */
+  --color-neutral-600: #4b5563;
+  --color-neutral-700: #374151;
+  --color-neutral-800: #1f2937;
+  --color-neutral-900: #111827;
+
+  /* Semantic status scales — anchored on the guide's own values. */
+  --color-success-50: #e8f5e9;
+  --color-success-100: #c8e6c9;
+  --color-success-500: #2e7d32; /* GUIDE "Éxito / Crecimiento" */
+  --color-success-600: #276b2b;
+  --color-success-700: #1b5e20;
+
+  /* Warning — the guide names no separate warning colour, and its own
+   * "Pendiente" chip is gold. So warning ALIASES the accent rather than
+   * introducing a sixth hue the identity never sanctioned. */
+  --color-warning-50: var(--color-gold-50);
+  --color-warning-100: var(--color-gold-100);
+  --color-warning-500: var(--color-gold-500);
+  --color-warning-600: var(--color-gold-600);
+  --color-warning-700: var(--color-gold-700);
+
+  --color-error-50: #ffebee;
+  --color-error-100: #ffcdd2;
+  --color-error-500: #d32f2f; /* GUIDE "Alerta / Importante" */
+  --color-error-600: #c62828;
+  --color-error-700: #b71c1c;
+
+  /* Info — the guide's "En Progreso" chip is blue, and doc18 §3 asks for
+   * "azul suave, nunca azul intenso". Info therefore aliases the softer end
+   * of the primary ramp rather than introducing a second, competing blue. */
+  --color-info-50: var(--color-primary-50);
+  --color-info-100: var(--color-primary-100);
+  --color-info-500: var(--color-primary-500);
+  --color-info-600: var(--color-primary-600);
+  --color-info-700: var(--color-primary-700);
+
+  /* Role accents (doc18 §31) — purple tiers remapped onto the blue scale;
+   * "Pastores Generales" keeps gold exactly as documented. */
+  --color-role-admin: var(--color-primary-900);
+  --color-role-general-pastor: var(--color-gold-600);
+  --color-role-district-pastor: var(--color-primary-600);
+  --color-role-leader: var(--color-primary-400);
+
+  /* Typography (doc18 §4) — Inter only, never a second family. */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --text-display: 3rem; /* 48 */
+  --text-display--line-height: 1.1;
+  --text-h1: 2.25rem; /* 36 */
+  --text-h1--line-height: 1.2;
+  --text-h2: 1.875rem; /* 30 */
+  --text-h2--line-height: 1.25;
+  --text-h3: 1.5rem; /* 24 */
+  --text-h3--line-height: 1.3;
+  --text-h4: 1.25rem; /* 20 */
+  --text-h4--line-height: 1.4;
+  --text-body: 1rem; /* 16 */
+  --text-body--line-height: 1.5;
+  --text-small: 0.875rem; /* 14 */
+  --text-small--line-height: 1.45;
+  --text-caption: 0.75rem; /* 12 */
+  --text-caption--line-height: 1.4;
+
+  /* Border radius (doc18 §7). */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+
+  /* Elevation (doc18 §8) — exactly four levels, never exaggerated. */
+  --shadow-sm: 0 1px 2px 0 rgb(6 28 49 / 0.05);
+  --shadow-md: 0 2px 8px -1px rgb(6 28 49 / 0.08), 0 1px 3px -1px rgb(6 28 49 / 0.06);
+  --shadow-lg: 0 8px 20px -4px rgb(6 28 49 / 0.1), 0 3px 6px -2px rgb(6 28 49 / 0.05);
+  --shadow-xl: 0 16px 32px -8px rgb(6 28 49 / 0.12), 0 6px 12px -4px rgb(6 28 49 / 0.06);
+
+  /* Animation (doc18 §25) — only these three, never longer. */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 300ms;
+
+  /* Icon sizes (doc18 §9) — Lucide React only. */
+  --icon-xs: 16px;
+  --icon-sm: 20px;
+  --icon-md: 24px;
+  --icon-lg: 32px;
+
+  /* Layout breakpoints backing the responsive grid (doc18 §6):
+   * mobile 4 cols / tablet 8 cols / desktop 12 cols. */
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1280px;
+}
+
+/* ---------------------------------------------------------------- *
+ * Semantic (themeable) variables. Components reference ONLY these for
+ * surfaces/text/borders, so a dark theme never requires touching a
+ * component (doc18 §34).
+ * ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------- *
+ * Chart tokens.
+ *
+ * Charts get their own names rather than reaching into `--color-primary-*`
+ * directly, because a chart hue answers to a different constraint than a
+ * button: it must clear 3:1 against the SURFACE IT SITS ON and stay inside
+ * a lightness band, in every theme. `#1e88e5` was verified against both
+ * (light band L 0.43–0.77, dark band L 0.48–0.67, contrast ≥ 3:1 on
+ * `#ffffff` and on the dark surface) — which is why the same step serves
+ * both themes here and no `.dark` override is needed.
+ *
+ * Every series is SINGLE per chart in this product, so there is no
+ * categorical ramp to keep colourblind-separable yet. Adding a second
+ * series means re-running the palette validator, not picking a hue that
+ * looks nice beside this one.
+ * ---------------------------------------------------------------- */
+@theme {
+  --color-chart-1: #1e88e5;
+  /* Gridlines and axes: "one step off surface", recessive by design. */
+  --color-chart-grid: var(--color-neutral-200);
+  --color-chart-axis: var(--color-neutral-500);
+}
+
+:root {
+  --background: #f5f7fa; /* GUIDE "Fondo Claro" — limpieza, amplitud */
+  --surface: #ffffff; /* GUIDE "Blanco" — pureza, simplicidad */
+  --surface-muted: var(--color-neutral-50);
+  --foreground: var(--color-neutral-900);
+  --foreground-muted: var(--color-neutral-500);
+  --border: var(--color-neutral-200);
+  --ring: var(--color-primary-500);
+  --overlay: rgb(11 61 109 / 0.45);
+}
+
+/*
+ * Dark theme scaffolding (doc18 §34: "preparado", NOT enabled in v1.0).
+ * Opt-in via a `.dark` class on <html>; nothing toggles it yet, and
+ * `prefers-color-scheme` is deliberately NOT wired so v1.0 stays light-only
+ * as documented.
+ */
+.dark {
+  --background: var(--color-primary-950);
+  --surface: #0d3357;
+  --surface-muted: #123f68;
+  --foreground: var(--color-neutral-50);
+  --foreground-muted: var(--color-neutral-400);
+  --border: #1c5183;
+  --ring: var(--color-primary-400);
+  --overlay: rgb(0 0 0 / 0.6);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+}
+
+/* ---------------------------------------------------------------- *
+ * Base layer
+ * ---------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Doc18 §27: focus must always be visible, keyboard support 100%. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}

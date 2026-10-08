@@ -1,0 +1,27 @@
+# Business source-of-truth and client assets — ABSOLUTE rule: never read-to-
+# modify, format, move, rename, or delete anything in here. Read-only, always.
+Documentos
+Banco-imagenes
+
+# Pre-existing tooling directory, unrelated to this phase's work — leave as-is.
+.atl
+
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+build
+.next
+out
+coverage
+.turbo
+
+# Lockfiles (auto-generated, not human-formatted)
+pnpm-lock.yaml
+
+# Husky internal
+.husky/_
+
+# Misc
+*.min.js

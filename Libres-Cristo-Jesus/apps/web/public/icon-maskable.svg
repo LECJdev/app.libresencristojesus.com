@@ -1,0 +1,16 @@
+<!--
+  Maskable variant: the launcher may crop this to a circle or a squircle, so
+  the mark is scaled down into the safe zone (the central 80% of the canvas)
+  and the brand colour is bled edge to edge. Using icon.svg as maskable would
+  get the roof clipped on most Android launchers.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="512" height="512">
+  <title>LCJ Connect</title>
+  <rect width="32" height="32" fill="#0b3d6d"/>
+  <g transform="translate(16 16) scale(0.62) translate(-16 -16)"
+     fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 13.5 16 4l12 9.5V27a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z"/>
+    <path d="M16 14v8"/>
+    <path d="M12.5 17.5h7"/>
+  </g>
+</svg>

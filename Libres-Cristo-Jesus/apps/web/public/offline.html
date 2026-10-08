@@ -1,0 +1,124 @@
+<!--
+  Offline fallback served by sw.js when a navigation cannot reach the network.
+
+  Standalone and fully self-contained on purpose: it is shown precisely when
+  fetching anything else has failed, so it can reference no stylesheet, no
+  font and no script.
+-->
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b3d6d" />
+    <title>Sin conexión · LCJ Connect</title>
+    <style>
+      /*
+       * These values duplicate `@lcj/ui`'s tokens ON PURPOSE: this page is
+       * served by the service worker with no stylesheet and no bundler, so it
+       * cannot import them. Keep it in step with `tokens.css` by hand — it is
+       * the one file the "never hardcode a colour" rule cannot cover.
+       */
+      :root {
+        --background: #f5f7fa;
+        --surface: #ffffff;
+        --primary: #0b3d6d;
+        --primary-hover: #1565c0;
+        --foreground: #111827;
+        --foreground-muted: #6b7280;
+        --border: #e5e7eb;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background: var(--background);
+        color: var(--foreground);
+        font-family:
+          'Inter',
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        width: 100%;
+        max-width: 26rem;
+        padding: 2rem 1.5rem;
+        text-align: center;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+      }
+      svg {
+        width: 3rem;
+        height: 3rem;
+        color: var(--primary);
+      }
+      h1 {
+        margin: 1.25rem 0 0.5rem;
+        font-size: 1.25rem;
+        line-height: 1.4;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: var(--foreground-muted);
+      }
+      button {
+        margin-top: 1.5rem;
+        min-height: 2.75rem;
+        width: 100%;
+        padding: 0 1rem;
+        font: inherit;
+        font-weight: 500;
+        color: #ffffff;
+        background: var(--primary);
+        border: 0;
+        border-radius: 0.375rem;
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--primary-hover);
+      }
+      button:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg
+        viewBox="0 0 32 32"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M4 13.5 16 4l12 9.5V27a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z" />
+        <path d="M16 14v8" />
+        <path d="M12.5 17.5h7" />
+      </svg>
+
+      <h1>Sin conexión</h1>
+      <p>
+        No fue posible conectarse al servidor. Revise su conexión a internet e intente nuevamente.
+      </p>
+
+      <button type="button" onclick="window.location.reload()">Reintentar</button>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm 10+ blocks dependency install/postinstall scripts by default and asks
+# for an explicit decision per package. Both of these are legitimate,
+# actively-maintained native deps pulled in transitively by Next.js tooling
+# (sharp powers next/image optimization; unrs-resolver is a fast native
+# module resolver used by ESLint/Next tooling) — allowed so they work
+# correctly instead of silently degrading.
+allowBuilds:
+  # Prisma's CLI and query-engine binaries are fetched via postinstall
+  # scripts; both are official, actively-maintained deps needed for
+  # `prisma generate`/`migrate` to work (Phase 2 — shared backend infra).
+  '@prisma/engines': true
+  # `@scarf/scarf` is a telemetry-ping postinstall script pulled in
+  # transitively by `argon2` — not needed for `argon2` itself to work,
+  # so its script is skipped rather than allowed to run (Phase 3 — Auth
+  # module, `LeadershipUnit.passwordHash` hashing).
+  '@scarf/scarf': false
+  # `argon2` (Argon2id password hashing, doc21 section 7) needs its
+  # postinstall script to build/fetch the native binding it wraps
+  # (Phase 3 — Auth module).
+  argon2: true
+  # esbuild powers `tsx`, used to run `prisma/seed.ts` without a
+  # separate root-level tsconfig/ts-node setup (Phase 2).
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true

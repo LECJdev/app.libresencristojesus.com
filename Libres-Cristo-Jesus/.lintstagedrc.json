@@ -1,0 +1,27 @@
+{
+  "apps/web/**/*.{ts,tsx,js,jsx,mjs,cjs}": [
+    "eslint --config apps/web/eslint.config.mjs --fix",
+    "prettier --write"
+  ],
+  "apps/api/**/*.{ts,tsx,js,jsx,mjs,cjs}": [
+    "eslint --config apps/api/eslint.config.mjs --fix",
+    "prettier --write"
+  ],
+  "packages/ui/**/*.{ts,tsx,js,jsx,mjs,cjs}": [
+    "eslint --config packages/ui/eslint.config.mjs --fix",
+    "prettier --write"
+  ],
+  "packages/types/**/*.{ts,tsx,js,jsx,mjs,cjs}": [
+    "eslint --config packages/types/eslint.config.mjs --fix",
+    "prettier --write"
+  ],
+  "packages/utils/**/*.{ts,tsx,js,jsx,mjs,cjs}": [
+    "eslint --config packages/utils/eslint.config.mjs --fix",
+    "prettier --write"
+  ],
+  "packages/config/**/*.{ts,tsx,js,jsx,mjs,cjs}": [
+    "eslint --config packages/config/eslint.config.mjs --fix",
+    "prettier --write"
+  ],
+  "*.{json,md,yml,yaml,css}": ["prettier --write"]
+}

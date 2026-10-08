@@ -1,0 +1,27 @@
+{
+  "name": "LCJ Connect — Gestión de Casas de Paz",
+  "short_name": "LCJ Connect",
+  "description": "Plataforma de gestión de Casas de Paz de la Iglesia Cristiana Libres en Cristo Jesús.",
+  "lang": "es",
+  "dir": "ltr",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f7fa",
+  "theme_color": "#0b3d6d",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

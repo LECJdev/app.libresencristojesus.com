@@ -46,5 +46,16 @@ lerna-debug.log*
 .vercel
 .serverless
 
+# Agent / SDD metadata (internal, not project source)
+.atl/
+
 /id_lbres
 /id_rsaP
+/openspec
+.atl/
+.pi
+.codegraph
+# Root-level local data files (census exports, scratch images)
+/*.xlsx
+/*.png
+.claude/

@@ -1,0 +1,17 @@
+{
+  "extends": "@lcj/config/typescript/library.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    // Source-exported package (see package.json `exports`): Next.js
+    // transpiles it via `transpilePackages`, so nothing is emitted here.
+    // `tsc` runs purely as a type gate. Emitting was avoided on purpose —
+    // a compile step risks dropping the `"use client"` directives these
+    // Radix-backed components depend on.
+    "noEmit": true,
+    // Next.js resolves these as bundler-style ESM, not NodeNext.
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["src"]
+}

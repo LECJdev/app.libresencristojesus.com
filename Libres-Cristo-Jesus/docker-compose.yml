@@ -1,0 +1,99 @@
+name: lcj-connect
+
+# Phase 1 scope: infrastructure dependencies only (Postgres, Redis, MinIO,
+# Mailpit). apps/web and apps/api run locally via `pnpm dev`, NOT as
+# containers, in this phase.
+
+networks:
+  lcj-network:
+    name: lcj-network
+    driver: bridge
+
+volumes:
+  lcj-postgres-data:
+    name: lcj-postgres-data
+  lcj-redis-data:
+    name: lcj-redis-data
+  lcj-minio-data:
+    name: lcj-minio-data
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: lcj-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lcj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-lcj_connect}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - lcj-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-lcj} -d ${POSTGRES_DB:-lcj_connect}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lcj-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: lcj-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - lcj-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - lcj-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: lcj-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-lcj_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change_me_minio_password}
+    ports:
+      - '${MINIO_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - lcj-minio-data:/data
+    healthcheck:
+      # curl/wget are not present in this image; `mc` (MinIO Client) is
+      # bundled instead — this is MinIO's own documented healthcheck.
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lcj-network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: lcj-mailpit
+    restart: unless-stopped
+    ports:
+      - '${SMTP_PORT:-1025}:1025'
+      - '${MAILPIT_WEB_PORT:-8025}:8025'
+    healthcheck:
+      # /mailpit readyz is Mailpit's own bundled healthcheck binary/endpoint.
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - lcj-network

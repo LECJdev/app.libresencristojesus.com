@@ -1,0 +1,1348 @@
+// Prisma schema — LCJ Connect
+//
+// Location: `prisma/schema.prisma` at the monorepo ROOT (per
+// `Documentos/22 – Master Development Execution Plan.md`, section
+// "ESTRUCTURA DEL REPOSITORIO" — `prisma/` is a top-level sibling of
+// `apps/` and `packages/`, not nested inside `apps/api`).
+//
+// Phase 2 scope ("infraestructura compartida del backend"): only the
+// models needed by shared backend infrastructure (auth plumbing, RBAC,
+// sessions, audit trail). NO business/domain models yet (District,
+// PeaceHouse, Person, Meeting, etc. land in later phases per
+// Documentos/22's roadmap).
+//
+// Field source of truth: `Documentos/04-modelo-de-datos.md` section 4
+// ("Organización") and section 8 ("Seguridad"). Naming/typing
+// conventions: section 13 ("Eliminación Lógica"), section 14 ("Campos
+// Comunes") and section 15 (general conventions — UUID PKs, explicit
+// FKs, UTC dates, English table/column names).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7: the connection string is no longer read from `url` here — it
+// now lives in `prisma.config.ts` (`datasource.url`) at the repo root,
+// and `PrismaService` (apps/api/src/common/prisma) passes it to the
+// `@prisma/adapter-pg` driver adapter instead of relying on an implicit
+// engine connection. `DATABASE_URL` remains the actual source of truth
+// either way — only how it's consumed changed.
+datasource db {
+  provider = "postgresql"
+}
+
+// Doc04 §13/§14 "tabla principal" convention: soft-delete only (never a
+// physical DELETE), optimistic locking via `version`. Applied to
+// LeadershipUnit/LeadershipMember below. Deliberately NOT applied to
+// CatRole (lightweight, near-static catalog), UserSession (technical,
+// short-lived) or AuditLog (immutable log — see their own comments).
+enum LeadershipUnitStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  RETIRED
+}
+
+/// Simple role catalog (doc04 §4). NOT a full Role/Permission/
+/// RolePermission RBAC schema — access control is enforced in code via
+/// Guards comparing `CatRole.name` against the roles a given endpoint
+/// allows (see `apps/api/src/common/security`), not via a normalized
+/// permission table. Seeded with the 4 initial roles via `prisma/seed.ts`.
+model CatRole {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  leadershipUnits LeadershipUnit[]
+  /// See the `RolePermission` model comment below: this relation exists
+  /// despite `packages/types/src/role.ts` still documenting a pure
+  /// code-based (no permissions table) authorization model.
+  rolePermissions RolePermission[]
+}
+
+/// One of the most important tables (doc04 §4): the system does NOT
+/// store a plain "Pastor"/"Líder" user row — it stores a Leadership Unit,
+/// which is what actually holds login credentials. Up to 2
+/// LeadershipMember rows (e.g. a pastor + spouse) share one Unit's
+/// account (RN-007: two different users must never exist for the same
+/// Leadership Unit).
+model LeadershipUnit {
+  id     String               @id @default(uuid())
+  /// Kind of leadership unit. Left as a plain string on purpose: doc04
+  /// does not enumerate a fixed set of values for it (unlike `status`,
+  /// which doc02/doc04 do define) — revisit once the docs define a
+  /// closed set of values (e.g. "Pastores Generales"/"Pastor Distrito").
+  type   String
+  /// Path to the stored photo file only — never the binary (doc04 §15).
+  photo  String?
+  roleId String
+  role   CatRole              @relation(fields: [roleId], references: [id])
+  /// Governs the WHOLE couple's access, not a single member: a suspended/
+  /// retired Unit blocks login for every one of its `LeadershipMember`
+  /// rows regardless of that member's own credentials being valid
+  /// (see `AuthService.login`). Individual login credentials live on
+  /// `LeadershipMember` below (architecture decision: each member now
+  /// has their own account, but district/Casa de Paz OWNERSHIP still
+  /// points at this Unit, so both members of a couple keep the same
+  /// scope).
+  status LeadershipUnitStatus @default(ACTIVE)
+
+  // "Tabla principal" convention (doc04 §13/§14).
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  /// Optimistic locking counter.
+  version   Int       @default(1)
+
+  members                     LeadershipMember[]
+  /// A LeadershipUnit may be the pastor of a District (optional — a
+  /// District can momentarily exist without an assigned Unit) and/or the
+  /// leader of a PeaceHouse (required there).
+  districtsLed                District[]                    @relation("districtsLed")
+  peaceHousesLed              PeaceHouse[]                  @relation("peaceHousesLed")
+  /// Past and present appointments over Peace Houses (doc06 §10).
+  peaceHouseLeadershipHistory PeaceHouseLeadershipHistory[] @relation("peaceHouseLeadershipHistory")
+  /// Past and present appointments over Kids Schools (leader or auxiliary).
+  /// Escuela Kids is a module independent from Casas de Paz — see the
+  /// "Escuela Kids" section below — so this Unit may hold a Kids role
+  /// (KIDS_LEADER/KIDS_ASSISTANT) alongside, or instead of, any
+  /// Casas de Paz role.
+  kidsAssignments             KidsUserAssignment[]          @relation("kidsAssignments")
+
+  @@index([roleId])
+}
+
+/// Physical person belonging to a LeadershipUnit. A Unit has up to 2
+/// (doc04 §4) — enforced at the application layer (Prisma has no native
+/// "max 2 rows per parent" constraint), not in this shared-infra phase.
+///
+/// LOGIN CREDENTIALS LIVE HERE, NOT ON `LeadershipUnit` (architecture
+/// decision, superseding the original doc04 design that had the two
+/// members of a couple share one account). Each member now has their own
+/// `username`/`passwordHash`, so both can be authenticated at the same
+/// time without locking each other out. `LeadershipUnit.status` still
+/// governs the couple as a whole — see the comment there — and District/
+/// Casa de Paz OWNERSHIP is unaffected: it still points at the Unit, so
+/// both members keep identical scope.
+model LeadershipMember {
+  id               String         @id @default(uuid())
+  leadershipUnitId String
+  leadershipUnit   LeadershipUnit @relation(fields: [leadershipUnitId], references: [id])
+  firstName        String
+  lastName         String
+  gender           String
+  phone            String?
+  email            String?
+  photo            String?
+  birthDate        DateTime?
+
+  username           String  @unique
+  /// Argon2id hash (doc21 §7).
+  passwordHash       String
+  /// Forces the "define new password" screen on next login before any
+  /// other route is reachable. Set `true` for auto-generated accounts
+  /// (e.g. the second member of a pre-existing couple, migrated off the
+  /// old shared-account model with a temporary password derived from the
+  /// unit's), and for an Administrador-issued password reset. Cleared by
+  /// the self-service change-password flow once the member picks their
+  /// own password.
+  mustChangePassword Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  sessions UserSession[]
+
+  @@index([leadershipUnitId])
+}
+
+/// Refresh-token session tracking (doc04 §8 "Seguridad"). Technical/
+/// short-lived table — intentionally does NOT follow the "tabla
+/// principal" convention (no status/version/soft-delete).
+///
+/// Scoped to the `LeadershipMember` (the person who actually logged in),
+/// not the `LeadershipUnit` — each member now authenticates
+/// independently, so their sessions must not collide with each other.
+model UserSession {
+  id                 String           @id @default(uuid())
+  leadershipMemberId String
+  leadershipMember   LeadershipMember @relation(fields: [leadershipMemberId], references: [id])
+  /// SHA-256 hash of the refresh token — NEVER the plaintext token
+  /// (doc21). Argon2id is deliberately NOT used here: it is designed to
+  /// be slow for low-entropy secrets like passwords, while a refresh
+  /// token is already a high-entropy random value — a fast, equality-
+  /// searchable hash is the correct and standard choice so it can be
+  /// looked up directly in the DB on validate/rotate.
+  refreshToken       String
+  device             String?
+  browser            String?
+  ip                 String?
+  lastAccess         DateTime         @default(now())
+  createdAt          DateTime         @default(now())
+
+  @@index([leadershipMemberId])
+  @@index([refreshToken])
+}
+
+/// Immutable audit trail (doc04 §8 "Seguridad"). Never updated or
+/// deleted — intentionally has none of the "tabla principal" fields
+/// (no status/version/soft-delete: an audit log is not itself audited).
+model AuditLog {
+  id        String   @id @default(uuid())
+  entity    String
+  entityId  String
+  action    String
+  oldValue  Json?
+  newValue  Json?
+  userId    String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+}
+
+// -----------------------------------------------------------------------
+// Organización (doc04 §4, doc06) — Church → District → PeaceHouse
+// hierarchy. Added after the Phase 2 shared-infra models above
+// (CatRole/LeadershipUnit/LeadershipMember/UserSession/AuditLog).
+// -----------------------------------------------------------------------
+
+// "Tabla principal" status convention (doc04 §13/§14) for Church/District/
+// PeaceHouse/Permission below. Deliberately narrower than
+// `LeadershipUnitStatus` above (ACTIVE/INACTIVE/SUSPENDED/RETIRED, which
+// encodes doc06 §16's person-facing leadership lifecycle) — these are
+// structural/organizational records, and doc07 (US-009 "Cerrar Casa" /
+// CU-003 "Cambio de estado Casa") only ever describes a two-state
+// open/closed toggle, never suspension or retirement.
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// -----------------------------------------------------------------------
+// Catálogos geográficos (doc04 §3) — CatDepartment / CatMunicipality.
+//
+// IDENTITY MODEL (decided explicitly by the project owner)
+// Three different identifiers coexist here, and conflating them is the
+// mistake this comment exists to prevent:
+//
+//   `id`         — internal UUID. The ONLY key other tables ever point at.
+//   `externalId` — the id used by whichever external source populated the
+//                  row. Exists solely so a re-sync can match an existing
+//                  row instead of duplicating it. Never a foreign key.
+//   `codeDane`   — the Colombian state's official code (2 digits for a
+//                  department, 5 for a municipality). A real business
+//                  attribute, required for future integrations with
+//                  official sources — but NULLABLE, because the source
+//                  currently feeding these tables (api-colombia.com) does
+//                  not publish it. Nothing internal may ever depend on it
+//                  to relate entities.
+//
+// `sourceName` records which provider wrote the row (see
+// `GeographySource` in apps/api/src/modules/geography). The
+// `(sourceName, externalId)` unique constraint is what makes the seeder
+// idempotent, and it is scoped per-source so swapping api-colombia for a
+// DIVIPOLA importer later cannot collide with the rows already present.
+// -----------------------------------------------------------------------
+
+/// The 32 departments plus Bogotá D.C. (doc04 §3).
+model CatDepartment {
+  id String @id @default(uuid())
+
+  /// Provider that produced this row, e.g. "api-colombia".
+  sourceName String
+  /// That provider's own identifier for this department.
+  externalId String
+  /// Official DANE code (2 digits). Null until an official provider fills it.
+  codeDane   String? @unique
+  name       String
+
+  /// Approximate centroid, filled ONCE by `scripts/geocode-geography.ts`.
+  /// Same `Decimal(9, 6)` as `PeaceHouse` — binary floating point cannot
+  /// represent most decimal coordinates exactly.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  status RecordStatus @default(ACTIVE)
+
+  // "Tabla principal" convention (doc04 §13/§14).
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  municipalities CatMunicipality[]
+  peaceHouses    PeaceHouse[]
+
+  @@unique([sourceName, externalId])
+  @@index([name])
+}
+
+/// Municipalities, each belonging to exactly one department (doc04 §3).
+model CatMunicipality {
+  id String @id @default(uuid())
+
+  departmentId String
+  department   CatDepartment @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  sourceName String
+  externalId String
+  /// Official DANE code (5 digits; its first 2 are the department's).
+  /// Null until an official provider fills it.
+  codeDane   String? @unique
+  name       String
+
+  /// THE MAP'S FALLBACK POSITION, filled ONCE by
+  /// `scripts/geocode-geography.ts` and never at request time.
+  ///
+  /// A Casa de Paz may carry its own pin; when it does not, the map places
+  /// it on its municipality. Geocoding this bounded catalogue once (~1.100
+  /// rows) is what keeps Nominatim's 1 req/s limit off the hot path — an
+  /// address geocoded per house would be unbounded and would re-run every
+  /// time a new house is registered.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  status RecordStatus @default(ACTIVE)
+
+  // "Tabla principal" convention (doc04 §13/§14).
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  peaceHouses PeaceHouse[]
+
+  @@unique([sourceName, externalId])
+  @@index([departmentId])
+  @@index([name])
+}
+
+/// Key/value system parameters (doc04 "Mejoras" §3) — backs the Church's
+/// "Configuración general". A table rather than constants in code so an
+/// administrator can change a setting without a deployment.
+model SystemSetting {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  value       String
+  description String?
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  status    RecordStatus @default(ACTIVE)
+  version   Int          @default(1)
+}
+
+/// Root of the org hierarchy (doc04 §4). A single row exists today; the
+/// table exists so the schema is ready for a multi-church deployment
+/// without a breaking migration later (doc04 §4's own stated rationale).
+model Church {
+  id             String  @id @default(uuid())
+  name           String
+  logo           String?
+  description    String?
+  primaryColor   String?
+  secondaryColor String?
+  address        String?
+  phone          String?
+  email          String?
+
+  // "Tabla principal" convention (doc04 §13/§14).
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  status    RecordStatus @default(ACTIVE)
+  version   Int          @default(1)
+
+  districts District[]
+}
+
+/// doc04 §4 / doc07 US-005. `number` is unique per Church (not globally):
+/// only one Church exists today, but scoping the uniqueness this way
+/// avoids a breaking migration once a second Church is onboarded.
+model District {
+  id               String          @id @default(uuid())
+  churchId         String
+  church           Church          @relation(fields: [churchId], references: [id], onDelete: Restrict)
+  number           Int
+  name             String
+  description      String?
+  /// The District's pastor. Optional: doc07 US-005's flow creates the
+  /// District, then separately assigns leadership.
+  leadershipUnitId String?
+  leadershipUnit   LeadershipUnit? @relation("districtsLed", fields: [leadershipUnitId], references: [id], onDelete: Restrict)
+  status           RecordStatus    @default(ACTIVE)
+
+  // "Tabla principal" convention (doc04 §13/§14).
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  peaceHouses PeaceHouse[]
+
+  @@unique([churchId, number])
+  @@index([churchId])
+  @@index([leadershipUnitId])
+}
+
+/// doc04 §4 / doc07 US-007 ("No permitir dos Casas iguales en el mismo
+/// Distrito" -> unique (districtId, name)).
+///
+/// `departmentId`/`municipalityId` were free-text columns until the
+/// geographic catalogs existed; they are now real foreign keys into
+/// `CatDepartment`/`CatMunicipality`, which is what makes the national
+/// coverage map countable by municipality (doc06 §11).
+model PeaceHouse {
+  id               String           @id @default(uuid())
+  districtId       String
+  district         District         @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  leadershipUnitId String
+  leadershipUnit   LeadershipUnit   @relation("peaceHousesLed", fields: [leadershipUnitId], references: [id], onDelete: Restrict)
+  name             String
+  /// Human-readable identifier (e.g. "CP-09-004"). Unique when present;
+  /// Postgres allows many NULLs under a unique index, so rows created
+  /// before codes were assigned stay valid.
+  code             String?          @unique
+  departmentId     String?
+  department       CatDepartment?   @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  municipalityId   String?
+  municipality     CatMunicipality? @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
+  neighborhood     String?
+  address          String?
+  /// Optional pin (doc06/user spec: "Coordenada opcional"). `Decimal`,
+  /// never `Float`: binary floating point cannot represent most decimal
+  /// coordinates exactly, and drifting a stored location by metres for
+  /// no reason is a silly bug to inherit. 6 decimals ≈ 0.11 m.
+  latitude         Decimal?         @db.Decimal(9, 6)
+  longitude        Decimal?         @db.Decimal(9, 6)
+  /// Free text on purpose — doc04/doc07 never enumerate a closed set of
+  /// weekday values.
+  meetingDay       String?
+  /// Stored as text (e.g. "18:00") rather than a DB time type — doc04/
+  /// doc07 never specify a precision requirement, and this keeps the
+  /// column trivially serializable for the API/frontend.
+  meetingHour      String?
+  status           RecordStatus     @default(ACTIVE)
+
+  // "Tabla principal" convention (doc04 §13/§14).
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  leadershipHistory PeaceHouseLeadershipHistory[]
+  personHistory     PersonPeaceHouseHistory[]
+  meetingSchedules  MeetingSchedule[]
+
+  @@unique([districtId, name])
+  @@index([districtId])
+  @@index([leadershipUnitId])
+  @@index([departmentId])
+  @@index([municipalityId])
+}
+
+/// doc04 "Mejoras" §2 + doc06 §10 ("Todo liderazgo conservará historial…
+/// Nunca se perderá información") and §14 ("Línea de Tiempo").
+///
+/// `PeaceHouse.leadershipUnitId` answers "who leads it NOW"; this table
+/// answers "who led it, and when". Both are kept because collapsing them
+/// into one would make every read of the current leader a query for the
+/// row with a null `endDate` — correct but needlessly fragile, and the
+/// current-leader FK is what enforces that a house always has one.
+///
+/// The open period is the row with `endDate = null`; the application
+/// closes it before opening the next one.
+model PeaceHouseLeadershipHistory {
+  id           String     @id @default(uuid())
+  peaceHouseId String
+  peaceHouse   PeaceHouse @relation(fields: [peaceHouseId], references: [id], onDelete: Restrict)
+
+  leadershipUnitId String
+  leadershipUnit   LeadershipUnit @relation("peaceHouseLeadershipHistory", fields: [leadershipUnitId], references: [id], onDelete: Restrict)
+
+  startDate DateTime
+  endDate   DateTime?
+  /// Why leadership changed, e.g. "Traslado de distrito".
+  reason    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  @@index([peaceHouseId])
+  @@index([leadershipUnitId])
+  @@index([startDate])
+}
+
+// -----------------------------------------------------------------------
+// RBAC (Permission/RolePermission) — NOT present in doc04. This is an
+// explicit architecture decision approved by the user, deliberately
+// departing from doc04/doc05: doc05 "Modelo de Seguridad" describes
+// Role -> Permisos -> Policies purely as an authorization *concept*, with
+// no normalized DB design, and `packages/types/src/role.ts` currently
+// carries an explicit comment stating "There is no Role/Permission/
+// RolePermission normalized schema in this project" and that access
+// control is enforced purely in code via Guards comparing `CatRole.name`.
+// That comment is now stale as of this migration — reconcile it (and wire
+// the Guards to actually read RolePermission) as a follow-up; these two
+// tables are defined but not yet consumed anywhere in `apps/api`.
+// -----------------------------------------------------------------------
+
+/// `(resource, action)` pairs, e.g. ("district", "create"). Carries the
+/// full "tabla principal" field set (doc04 §13/§14) so permission
+/// creation/edits are themselves auditable, unlike the plain `CatRole`
+/// catalog above.
+model Permission {
+  id          String  @id @default(uuid())
+  resource    String
+  action      String
+  description String?
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  status    RecordStatus @default(ACTIVE)
+  version   Int          @default(1)
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+}
+
+/// Join table between `CatRole` and `Permission`. Technical/join table
+/// (like `UserSession`) — intentionally does NOT carry the "tabla
+/// principal" field set.
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  role         CatRole    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+  createdAt    DateTime   @default(now())
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// -----------------------------------------------------------------------
+// FASE 7 — Personas y Asistencia (doc04 §5/§6, doc11 RN-4xx/RN-5xx)
+// -----------------------------------------------------------------------
+
+/// Pastoral process stages (doc04 §3 `CatPersonStage`): "Nuevo Visitante",
+/// "Asistente Frecuente", "En Consolidación", "Miembro", "Servidor",
+/// "Líder Potencial".
+///
+/// A TABLE and not an enum, unlike `MeetingStatus` below: doc04 §3 places
+/// it among the catalogs the business administers, and the stages describe
+/// a discipleship path a church may genuinely extend. An enum would make
+/// adding one a migration and a deployment.
+model CatPersonStage {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  /// Display/progression order — the stages are a sequence, not a set.
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  status    RecordStatus @default(ACTIVE)
+
+  people Person[]
+}
+
+/// An attendee (doc04 §5). NOT a `LeadershipUnit`: people are individuals
+/// with no account, while leadership is a couple sharing one.
+model Person {
+  id String @id @default(uuid())
+
+  /// National id. Unique WHEN PRESENT and nullable on purpose: a first-time
+  /// visitor is registered from the doorway, and demanding a document
+  /// before recording them would simply mean they are not recorded.
+  document  String?   @unique
+  firstName String
+  lastName  String
+  gender    String?
+  phone     String?
+  email     String?
+  birthDate DateTime?
+  address   String?
+  /// Stored path returned by `POST /files/upload` (doc04 §15).
+  photo     String?
+  /// Free-text pastoral notes ("Observaciones" in the module brief).
+  notes     String?
+
+  personStageId String?
+  personStage   CatPersonStage? @relation(fields: [personStageId], references: [id], onDelete: Restrict)
+
+  status RecordStatus @default(ACTIVE)
+
+  // "Tabla principal" convention (doc04 §13/§14).
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  peaceHouseHistory PersonPeaceHouseHistory[]
+  attendances       Attendance[]
+
+  // doc04 §12 asks for indexes on document, phone and email.
+  @@index([phone])
+  @@index([email])
+  @@index([lastName, firstName])
+  @@index([personStageId])
+}
+
+/// Which Casa de Paz a person belonged to, and when (doc04 §5 — "una de las
+/// tablas más importantes").
+///
+/// A person's CURRENT house is the row whose `endDate` is null. There is
+/// deliberately no `currentPeaceHouseId` on `Person`: unlike a Casa de Paz
+/// (which must always have a leader), a person may legitimately belong to
+/// none — a visitor who has not been assigned yet — so a nullable FK plus
+/// this table would be two sources of truth for the same fact.
+model PersonPeaceHouseHistory {
+  id       String @id @default(uuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Restrict)
+
+  peaceHouseId String
+  peaceHouse   PeaceHouse @relation(fields: [peaceHouseId], references: [id], onDelete: Restrict)
+
+  startDate DateTime
+  endDate   DateTime?
+  reason    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  @@index([personId])
+  @@index([peaceHouseId])
+  @@index([startDate])
+}
+
+/// Weekly schedule of a Casa de Paz (doc04 §6).
+///
+/// Separate from `PeaceHouse.meetingDay`/`meetingHour`, which describe the
+/// house nominal schedule: this table is what actually generates meetings,
+/// and it keeps history when a house changes its day or hour.
+model MeetingSchedule {
+  id           String     @id @default(uuid())
+  peaceHouseId String
+  peaceHouse   PeaceHouse @relation(fields: [peaceHouseId], references: [id], onDelete: Restrict)
+
+  /// Weekday name, matching `PeaceHouse.meetingDay` (doc04 leaves it open).
+  meetingDay  String
+  /// 24h `HH:mm`.
+  meetingHour String
+  active      Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  meetings Meeting[]
+
+  @@index([peaceHouseId])
+  @@index([active])
+}
+
+/// Lifecycle of a weekly meeting (doc04 §3 `CatMeetingStatus`).
+///
+/// An enum rather than a table, unlike `CatPersonStage`: these six states
+/// are wired into application logic (what may be edited, what counts as
+/// reported), so adding one is a code change regardless — a catalog row
+/// would only create the illusion that it is configurable.
+enum MeetingStatus {
+  PROGRAMADA
+  EN_CURSO
+  PENDIENTE
+  REPORTADA
+  VALIDADA
+  CERRADA
+}
+
+/// One weekly meeting (doc04 §6).
+///
+/// LOCKING (doc11 RN-407 / RN-503) IS NOT STORED HERE ON PURPOSE.
+/// "The previous week meeting is locked for Líderes" is derived from
+/// `meetingDate` against the current week — always correct, with no
+/// scheduled job that can fail to run and leave every meeting editable
+/// forever. The EXCEPTION is what gets stored: see `MeetingUnlock`.
+///
+/// The report itself (`themeId`, `preacher`, offering, photographs) arrived
+/// in Fase 8 — see `SermonTheme`, `Offering` and `MeetingPhoto` below.
+model Meeting {
+  id                String          @id @default(uuid())
+  meetingScheduleId String
+  meetingSchedule   MeetingSchedule @relation(fields: [meetingScheduleId], references: [id], onDelete: Restrict)
+
+  /// The date the meeting took place. Date-only semantics; time lives in
+  /// the schedule.
+  meetingDate DateTime
+
+  /// ISO-8601 week the meeting belongs to, DERIVED from `meetingDate` and
+  /// stored so the database itself can enforce "one meeting per Casa de Paz
+  /// per week".
+  ///
+  /// WHY STORED RATHER THAN COMPUTED
+  /// The rule is a uniqueness constraint, and a constraint has to live in
+  /// the database or it is not a constraint — two concurrent lazy creations
+  /// would otherwise both pass an application-level check and insert two
+  /// meetings for the same week. Postgres could express this as a
+  /// functional index over EXTRACT(ISOYEAR/WEEK), but Prisma cannot declare
+  /// one, so the derived values are materialised instead.
+  ///
+  /// `isoYear` is NOT the calendar year: the week containing 2026-12-31 may
+  /// belong to ISO year 2027, and pairing the calendar year with an ISO week
+  /// number is the classic off-by-one that makes a January meeting collide
+  /// with a December one.
+  isoYear Int
+  isoWeek Int
+
+  status MeetingStatus @default(PROGRAMADA)
+  notes  String?
+
+  /// What was preached (doc04 §6 `themeId`, doc01 RF-022). Nullable: the
+  /// meeting row exists from the moment the week opens, long before anyone
+  /// reports what was taught in it.
+  themeId String?
+  theme   SermonTheme? @relation(fields: [themeId], references: [id], onDelete: Restrict)
+
+  /// Who preached (doc01 RF-023). Free text and NOT a `LeadershipUnit`
+  /// reference: guests preach, and a foreign key would force the church to
+  /// create an account for a visiting pastor just to write down his name.
+  preacher String?
+
+  /// LeadershipUnit that validated the report, and when it was closed.
+  validatedBy String?
+  closedAt    DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  attendances    Attendance[]
+  unlocks        MeetingUnlock[]
+  photos         MeetingPhoto[]
+  offering       Offering?
+  syncOperations SyncOperation[]
+
+  /// ONE MEETING PER CASA DE PAZ PER ISO WEEK — the constraint that makes
+  /// lazy creation safe under concurrency: two simultaneous requests race,
+  /// one inserts, the other gets a unique violation and re-reads.
+  @@unique([meetingScheduleId, isoYear, isoWeek])
+  @@index([meetingDate])
+  @@index([isoYear, isoWeek])
+  @@index([status])
+}
+
+/// Attendance of one person at one meeting (doc04 §6).
+///
+/// `present` is explicit rather than "a row means present": marking someone
+/// absent is information the church acts on, and the checklist UX
+/// ("marcar todos" / "desmarcar todos") produces exactly that.
+model Attendance {
+  id        String  @id @default(uuid())
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Restrict)
+
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Restrict)
+
+  present     Boolean   @default(false)
+  arrivalTime DateTime?
+  comments    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  /// A person appears once per meeting. Without this, a double submit
+  /// silently doubles the attendance count.
+  @@unique([meetingId, personId])
+  @@index([meetingId])
+  @@index([personId])
+}
+
+/// An exceptional reopening of a locked meeting (doc11 RN-407: "Los
+/// Pastores de Distrito y el Administrador podrán reabrirla de forma
+/// excepcional, dejando trazabilidad en la auditoría").
+///
+/// WHY THIS TABLE IS THE ONE THING THAT IS STORED
+/// The lock itself is derived from the calendar, so it can never drift.
+/// The unlock is the rare, deliberate act — and RN-407 asks for
+/// traceability of exactly that: who reopened, when, and why. A boolean on
+/// `Meeting` would record that it happened but not by whom, which is the
+/// half that matters in an audit.
+///
+/// `expiresAt` null means the reopening stands until the meeting is closed.
+model MeetingUnlock {
+  id        String  @id @default(uuid())
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Restrict)
+
+  /// LeadershipUnit that authorised the reopening.
+  unlockedBy String
+  /// Mandatory: an exception without a stated reason is not traceable.
+  reason     String
+  unlockedAt DateTime  @default(now())
+  expiresAt  DateTime?
+  /// Set when the reopening is revoked before it expires.
+  revokedAt  DateTime?
+  revokedBy  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
+  @@index([unlockedAt])
+}
+
+// -----------------------------------------------------------------------
+// FASE 8 — Registro de la reunión y Ofrendas (doc04 §6, doc02 RN-039/RN-044)
+// -----------------------------------------------------------------------
+
+/// Sermon themes (doc04 §6 `SermonTheme`).
+///
+/// WHY A TABLE AND NOT A TEXT COLUMN ON `Meeting`
+/// doc04 states the reason outright: "No escribir el tema manualmente cada
+/// semana." The same series is preached across every Casa de Paz in the
+/// same week, so free text would mean typing it eighty times — and, worse,
+/// would make "how did attendance move during the series on faith?"
+/// unanswerable, because "Fe", "La Fe" and "LA FE" are three themes to a
+/// database and one to a person.
+///
+/// NOT prefixed `Cat` like `CatPersonStage`/`CatRole`: those are master
+/// data the system administers, while themes are created by whoever
+/// prepares the teaching. Hence `createdBy` — a column no catalog has.
+model SermonTheme {
+  id          String  @id @default(uuid())
+  /// Unique so the catalog does not grow a duplicate every week. Compared
+  /// case-insensitively by the service before insert; the constraint here
+  /// is the last line of defence against a race, not the first check.
+  title       String  @unique
+  description String?
+  /// Optional grouping ("Serie: Fundamentos"), so a run of weeks can be
+  /// reported together.
+  series      String?
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  status    RecordStatus @default(ACTIVE)
+  version   Int          @default(1)
+
+  meetings Meeting[]
+
+  @@index([series])
+  @@index([status])
+}
+
+/// The offering collected at one meeting (doc04 §15 "Separar Ofrendas de
+/// las Reuniones", doc02 RN-039/RN-040/RN-041/RN-042).
+///
+/// WHY ITS OWN TABLE INSTEAD OF A COLUMN ON `Meeting`
+/// doc04 asks for it explicitly, and the reason holds: money has its own
+/// lifecycle. Who registered it and when is part of the record, not
+/// metadata of the meeting — and `Meeting.updatedBy` can only remember one
+/// of the two the moment anyone edits the theme.
+///
+/// RN-039 "una única ofrenda principal por reunión" is enforced by the
+/// unique `meetingId`, in the database. A service-level check would let two
+/// concurrent submits through and double the week's income.
+model Offering {
+  id        String  @id @default(uuid())
+  /// One per meeting (RN-039).
+  meetingId String  @unique
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Restrict)
+
+  /// Amount in COP (RN-040). `Decimal`, never `Float` (doc04 §15): binary
+  /// floating point cannot represent money exactly, and an offering that
+  /// reads 249999.99999 in a report destroys trust in the whole system.
+  /// Non-negative (RN-041), enforced by a CHECK constraint written by hand
+  /// in the migration — Prisma cannot declare one here, but the rule has to
+  /// live in the database or it is only a convention.
+  amount   Decimal @db.Decimal(14, 2)
+  /// Stored even though RN-040 fixes it at COP: an amount without its
+  /// currency written next to it is a number waiting to be misread.
+  currency String  @default("COP")
+  notes    String?
+
+  /// LeadershipUnit that registered it — the "registeredBy" doc04 asks for.
+  registeredBy String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  @@index([meetingId])
+}
+
+/// Photographs of a meeting (doc02 RN-043/RN-044, doc01 RF-025).
+///
+/// Several per meeting (RN-043), which is why this is a table and not a
+/// column: `Meeting.photo String?` would have to become an array of paths
+/// with no integrity, no upload date and no way to hide one.
+///
+/// RN-044 — "Las fotografías no podrán eliminarse definitivamente. Solo
+/// marcarse como ocultas o archivadas" — is why `hiddenAt` exists ALONGSIDE
+/// the usual `deletedAt`. They are different acts: hiding takes a photo out
+/// of the gallery (someone came out badly, a face should not be public),
+/// while the soft delete is the administrative removal of the record. A
+/// single flag would force the church to choose between forgetting why and
+/// not being able to do it at all.
+///
+/// Only the PATH is stored, never the binary (doc04 §15) — the file itself
+/// goes through `POST /files/upload` like every other upload in the system.
+model MeetingPhoto {
+  id        String  @id @default(uuid())
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Restrict)
+
+  /// Stored path returned by `POST /files/upload`.
+  path      String
+  /// Optional caption ("Bautizos", "Cierre de la serie").
+  caption   String?
+  /// Display order inside the gallery, so the leader controls which photo
+  /// represents the meeting.
+  sortOrder Int     @default(0)
+
+  /// RN-044: hidden/archived, never physically deleted.
+  hiddenAt DateTime?
+  hiddenBy String?
+
+  uploadedBy String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  @@index([meetingId])
+  @@index([hiddenAt])
+}
+
+// -----------------------------------------------------------------------
+// Sincronización offline (Fase 10, RN-1202/RN-1203)
+// -----------------------------------------------------------------------
+
+/// Resultado de intentar aplicar una operación creada sin conexión.
+enum SyncOperationStatus {
+  /// Se aplicó al dominio.
+  APPLIED
+  /// La regla de negocio la rechazó — típicamente la semana ya cerrada
+  /// cuando se creó la operación (Regla 4). No se reintenta.
+  REJECTED
+  /// Choca con un dato existente y la regla prohíbe sobrescribir solo
+  /// (Regla 6, ofrenda). Espera resolución manual.
+  CONFLICT
+}
+
+/// Bitácora de operaciones sincronizadas — la que hace la idempotencia real.
+///
+/// EL `operationId` LO GENERA EL CLIENTE, NO EL SERVIDOR. Ese es el punto:
+/// un teléfono que envía la cola, pierde la respuesta y reintenta manda
+/// exactamente los mismos identificadores, y la restricción única convierte
+/// el segundo intento en una consulta en vez de un duplicado (Regla 5).
+/// Un id del servidor no podría hacerlo: cada reintento pediría uno nuevo.
+///
+/// Guarda `payload` completo a propósito. Una operación rechazada o en
+/// conflicto tiene que poder explicarse —y potencialmente reproducirse— meses
+/// después, y para eso hace falta lo que el dispositivo realmente envió, no
+/// un resumen.
+model SyncOperation {
+  id String @id @default(uuid())
+
+  /// UUID generado por el dispositivo. La clave de idempotencia.
+  operationId String @unique
+
+  /// La reunión afectada. Nulo para operaciones que no cuelgan de una
+  /// (crear persona, por ejemplo).
+  meetingId String?
+  meeting   Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
+  /// `LeadershipUnit` que realizó la operación.
+  userId String
+
+  /// Identificador del dispositivo. Dos teléfonos de la misma pareja de
+  /// líderes comparten `userId`; sin esto no se puede reconstruir cuál de
+  /// los dos originó un conflicto.
+  deviceId String
+
+  /// CUÁNDO SE HIZO DE VERDAD. Contra esta fecha se evalúa el bloqueo
+  /// semanal (Regla 3), nunca contra la fecha de llegada.
+  createdOfflineAt DateTime
+
+  operationType String
+  payload       Json
+
+  status        SyncOperationStatus
+  /// Mensaje en español, mostrable al usuario cuando fue rechazada.
+  resultMessage String?
+
+  /// Cuándo llegó al servidor. Solo para trazabilidad: NO participa en
+  /// ninguna decisión de negocio.
+  syncedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([meetingId])
+  @@index([status])
+  @@index([createdOfflineAt])
+}
+
+// -----------------------------------------------------------------------
+// FASE 11 — Escuela Kids
+//
+// Módulo INDEPENDIENTE de Casas de Paz, aprobado explícitamente por el
+// dueño del proyecto (2026-08-24): no reutiliza `Person` (los niños
+// pertenecen al dominio Kids), no reutiliza el `attendance` de Casas de
+// Paz (aunque copia su mismo patrón de reunión semanal lazy + ISO week), y
+// no comparte scope con la jerarquía Church → District → PeaceHouse — una
+// `KidsSchool` (sede) es un nodo de scope propio, resuelto vía
+// `KidsUserAssignment` en vez de un único FK dueño como el resto del
+// sistema (ver `ScopeResourceType.KIDS_SCHOOL` en
+// `apps/api/src/common/security`).
+//
+// Roles `KIDS_LEADER`/`KIDS_ASSISTANT` extienden `RoleName`
+// (`packages/types/src/role.ts`). Decisión definitiva del dueño del
+// proyecto: ambos roles tienen acceso OPERATIVO idéntico sobre los niños
+// de su propia sede (crear/editar niño, acudientes, autorización,
+// asistencia, métricas) — la diferencia entre ambos es puramente
+// ADMINISTRATIVA (gestión de la sede y del equipo de auxiliares), no
+// operativa. Ver `prisma/seed.ts` para los grants exactos.
+// -----------------------------------------------------------------------
+
+enum KidsConsentStatus {
+  PENDING_AUTHORIZATION
+  ACTIVE
+  INACTIVE
+}
+
+enum KidsAssignmentRole {
+  LEADER
+  ASSISTANT
+}
+
+/// Una sede de Escuela Kids (ej. "Escuela Kids Norte" / "Sur"). Nodo de
+/// scope propio: quién puede leer/escribir sobre ella se resuelve por
+/// `KidsUserAssignment`, no por un `leadershipUnitId` único como
+/// District/PeaceHouse — porque una sede tiene UN líder y VARIOS
+/// auxiliares, el primer caso de pertenencia many-to-many del sistema.
+model KidsSchool {
+  id     String       @id @default(uuid())
+  name   String       @unique
+  status RecordStatus @default(ACTIVE)
+
+  // "Tabla principal" convention (doc04 §13/§14).
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  assignments KidsUserAssignment[]
+  children    KidsChild[]
+  meetings    KidsMeeting[]
+}
+
+/// Quién tiene acceso operativo/administrativo a una `KidsSchool` — líder o
+/// auxiliar — y desde cuándo hasta cuándo (RN definitiva del dueño del
+/// proyecto: nunca se borra físicamente, se cierra la asignación anterior y
+/// se crea una nueva).
+///
+/// `canCreateChild` es un permiso POR ASIGNACIÓN, no por rol: la regla
+/// aprobada dice que tanto KIDS_LEADER como KIDS_ASSISTANT pueden crear
+/// niños hoy, pero el campo existe porque el propio diseño original ("si
+/// tiene permiso") lo definía como algo delegable persona a persona, no
+/// fijo por rol — RolePermission no puede expresar eso.
+///
+/// UN SOLO LEADER ACTIVO POR SEDE: no expresable como `@@unique` normal en
+/// Prisma (es un unique PARCIAL — solo sobre filas con
+/// `role = LEADER AND endDate IS NULL AND deletedAt IS NULL`), así que la
+/// migración generada agrega dos índices únicos parciales a mano (ver
+/// `prisma/migrations/*/migration.sql`):
+///   1. (kidsSchoolId) WHERE role='LEADER' AND endDate IS NULL AND
+///      deletedAt IS NULL — nunca dos líderes activos en la misma sede.
+///   2. (kidsSchoolId, leadershipUnitId) WHERE endDate IS NULL AND
+///      deletedAt IS NULL — la misma persona no puede tener dos
+///      asignaciones activas simultáneas a la misma sede.
+/// Esto es lo único en el sistema que necesita un unique parcial: todo lo
+/// demás (District/PeaceHouse) es dueño único por FK directo.
+model KidsUserAssignment {
+  id               String             @id @default(uuid())
+  kidsSchoolId     String
+  kidsSchool       KidsSchool         @relation(fields: [kidsSchoolId], references: [id], onDelete: Restrict)
+  leadershipUnitId String
+  leadershipUnit   LeadershipUnit     @relation("kidsAssignments", fields: [leadershipUnitId], references: [id], onDelete: Restrict)
+  role             KidsAssignmentRole
+  canCreateChild   Boolean            @default(true)
+
+  /// Periodo abierto (`endDate = null`) = asignación activa. Mismo patrón
+  /// que `PeaceHouseLeadershipHistory`.
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  reason    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  @@index([kidsSchoolId])
+  @@index([leadershipUnitId])
+  @@index([kidsSchoolId, role, endDate])
+}
+
+/// Un niño de la Escuela Kids. Entidad INDEPENDIENTE de `Person` (decisión
+/// explícita del dueño del proyecto): un asistente adulto de Casa de Paz y
+/// un niño de Kids no comparten tabla ni ciclo de vida.
+///
+/// Sin campo `age`: se calcula desde `birthDate` en el service — un dato
+/// derivado nunca se vuelve dato maestro (queda desactualizado el día
+/// después de guardarse).
+model KidsChild {
+  id           String       @id @default(uuid())
+  kidsSchoolId String
+  kidsSchool   KidsSchool   @relation(fields: [kidsSchoolId], references: [id], onDelete: Restrict)
+  firstName    String
+  lastName     String
+  birthDate    DateTime
+  /// Ruta devuelta por `POST /files/upload` (categoría `kids-child-photo`)
+  /// — nunca el binario (doc04 §15, mismo patrón que `Person.photo`).
+  photo        String?
+  notes        String?
+  status       RecordStatus @default(ACTIVE)
+
+  // "Tabla principal" convention (doc04 §13/§14). La ausencia de
+  // autorización NUNCA borra este registro — ver `KidsConsent` — solo un
+  // soft delete explícito (`deletedAt`) lo hace.
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  guardians   KidsChildGuardian[]
+  consent     KidsConsent?
+  attendances KidsAttendance[]
+
+  @@index([kidsSchoolId])
+  @@index([lastName, firstName])
+}
+
+/// Padre/madre/acudiente. Tabla independiente de `KidsChild` (no embebida)
+/// porque un acudiente puede tener varios niños (hermanos) — ver
+/// `KidsChildGuardian`.
+model KidsGuardian {
+  id           String  @id @default(uuid())
+  firstName    String
+  lastName     String
+  /// Parentesco: "madre" | "padre" | "tutor" | ... — texto libre, doc no
+  /// define un catálogo cerrado para esto.
+  relationship String
+  phone        String
+  altPhone     String?
+  email        String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  children KidsChildGuardian[]
+}
+
+/// Relación N:M niño↔acudiente (un niño puede tener varios acudientes, un
+/// acudiente puede estar asociado a varios niños — hermanos). `isPrimary`
+/// distingue principal/secundario, RN definitiva del dueño del proyecto.
+model KidsChildGuardian {
+  id             String       @id @default(uuid())
+  kidsChildId    String
+  kidsChild      KidsChild    @relation(fields: [kidsChildId], references: [id], onDelete: Restrict)
+  kidsGuardianId String
+  kidsGuardian   KidsGuardian @relation(fields: [kidsGuardianId], references: [id], onDelete: Restrict)
+  isPrimary      Boolean      @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  @@unique([kidsChildId, kidsGuardianId])
+  @@index([kidsGuardianId])
+}
+
+/// Estado de la autorización de tratamiento/recolección de datos del niño.
+/// 1:1 con `KidsChild` — un único registro de ESTADO ACTUAL, no historial:
+/// se crea en `PENDING_AUTHORIZATION` al registrar el niño y se actualiza
+/// in-place cuando se carga/reemplaza el documento firmado.
+///
+/// RN definitiva del dueño del proyecto: la falta de autorización NUNCA
+/// elimina al niño — el niño existe siempre, este registro solo dice si su
+/// autorización está pendiente.
+model KidsConsent {
+  id           String            @id @default(uuid())
+  kidsChildId  String            @unique
+  kidsChild    KidsChild         @relation(fields: [kidsChildId], references: [id], onDelete: Restrict)
+  status       KidsConsentStatus @default(PENDING_AUTHORIZATION)
+  /// Ruta devuelta por `POST /files/upload` (categoría
+  /// `kids-consent-document`) — nunca el binario.
+  documentPath String?
+  /// Fecha en que el documento físico fue firmado (dato del papel, no del
+  /// sistema).
+  signedAt     DateTime?
+  /// Cuándo se cargó el documento al sistema — distinto de `signedAt` y de
+  /// `createdAt` (el registro existe desde `PENDING_AUTHORIZATION`, antes
+  /// de que exista ningún documento).
+  uploadedAt   DateTime?
+  /// Quién lo cargó — mismo patrón que `MeetingPhoto.uploadedBy`.
+  uploadedBy   String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  @@index([status])
+}
+
+/// Reunión semanal de una `KidsSchool`. Mismo patrón que `Meeting` de
+/// Casas de Paz (lazy creation + ISO year/week materializados para que la
+/// unicidad la garantice la base de datos, no el service — ver el
+/// comentario extenso en `Meeting` arriba), pero entidad independiente:
+/// Kids no reutiliza `attendance`/`Meeting` de Casas de Paz.
+///
+/// A diferencia de `Meeting`, no lleva `MeetingStatus`/lock semanal — el
+/// alcance aprobado para Kids es únicamente presente/ausente, sin ciclo de
+/// reporte/validación.
+model KidsMeeting {
+  id           String     @id @default(uuid())
+  kidsSchoolId String
+  kidsSchool   KidsSchool @relation(fields: [kidsSchoolId], references: [id], onDelete: Restrict)
+  meetingDate  DateTime
+  isoYear      Int
+  isoWeek      Int
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  attendances KidsAttendance[]
+
+  /// UNA REUNIÓN POR SEDE POR SEMANA ISO — misma razón que en `Meeting`:
+  /// hace segura la creación lazy bajo concurrencia.
+  @@unique([kidsSchoolId, isoYear, isoWeek])
+  @@index([kidsSchoolId])
+  @@index([isoYear, isoWeek])
+}
+
+/// Asistencia de un niño a una `KidsMeeting`. `present` explícito (no "la
+/// fila existe = presente") — mismo razonamiento que `Attendance` de Casas
+/// de Paz: marcar ausente es información que la sede usa.
+model KidsAttendance {
+  id            String      @id @default(uuid())
+  kidsMeetingId String
+  kidsMeeting   KidsMeeting @relation(fields: [kidsMeetingId], references: [id], onDelete: Restrict)
+  kidsChildId   String
+  kidsChild     KidsChild   @relation(fields: [kidsChildId], references: [id], onDelete: Restrict)
+  present       Boolean     @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  version   Int       @default(1)
+
+  /// Un niño aparece una sola vez por reunión — sin esto, un doble submit
+  /// duplica silenciosamente la asistencia (mismo riesgo que `Attendance`).
+  @@unique([kidsMeetingId, kidsChildId])
+  @@index([kidsMeetingId])
+  @@index([kidsChildId])
+}
